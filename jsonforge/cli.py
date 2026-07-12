@@ -138,7 +138,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             run_interactive(argv[0])
             return 0
-        except (OSError, json.JSONDecodeError) as exc:
+        except (OSError, json.JSONDecodeError, ValueError) as exc:
             print(f"jsonforge: {exc}", file=sys.stderr)
             return 2
 

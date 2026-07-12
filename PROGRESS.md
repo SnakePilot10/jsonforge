@@ -15,6 +15,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Saving creates timestamped backups by default for destructive write operations.
 - Backup names include collision handling so multiple writes in the same second do not overwrite earlier backups.
 - Saves are atomic: data is written to a temporary file, flushed, fsynced, validated, and then swapped into place with `os.replace()`.
+- Atomic saves preserve basic file metadata and reject symlink paths instead of replacing the link.
 - JSON handling is strict: `NaN`, `Infinity`, and `-Infinity` are rejected during load, cast, and save.
 
 ## Completed
@@ -45,6 +46,9 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Rejected non-standard JSON constants during validation, parsing, casting, and saving.
 - Tightened array insertion semantics so out-of-range and negative indexes fail instead of silently appending or inserting from the end.
 - Made search match JSON scalar spellings like `null`, `true`, and `false`.
+- Tightened array deletion semantics so negative and non-numeric indexes fail.
+- Made search compare raw object keys in addition to escaped paths.
+- Added clean error handling for strict JSON failures in shorthand interactive invocation.
 - Added package metadata, MIT license, changelog, contributing notes, and GitHub Actions tests.
 - Added initial README.
 - Added initial unit tests for casting, embedded JSON, paths, and search.
@@ -84,3 +88,4 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - CLI smoke tests passed for escaped dot paths, `--type string`, `add` duplicate rejection, and `python -m jsonforge search` returning exit code 1 on no matches.
 - `python -m pytest` passed: 37 tests after strict JSON and root embedded JSON regression coverage.
 - CLI smoke tests passed for root embedded JSON mutation and `validate` rejecting `Infinity` with exit code 2.
+- `python -m pytest` passed: 44 tests after delete-index, metadata, symlink, raw-key search, and shorthand strict-error regressions.

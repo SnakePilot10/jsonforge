@@ -18,6 +18,8 @@ JsonForge treats that string as editable structure when traversing paths, then w
 
 JsonForge also rejects non-standard JSON constants such as `NaN`, `Infinity`, and `-Infinity` during load, cast, and save operations.
 
+Atomic saves preserve the original file's basic metadata and refuse to replace symlink paths. If you need to edit a symlinked file, pass the target path explicitly.
+
 ## Install For Development
 
 ```bash
@@ -127,6 +129,8 @@ Supported explicit types are `auto`, `string`, `int`, `float`, `bool`, `null`, a
 - Universal JSON load/save.
 - Backup before write.
 - Atomic save using temp-file replacement.
+- Basic metadata preservation during atomic save.
+- Symlink save rejection to avoid replacing links by accident.
 - Strict JSON constants: `NaN` and `Infinity` are rejected.
 - Smart value casting.
 - Explicit value typing with `--type`.
@@ -136,6 +140,7 @@ Supported explicit types are `auto`, `string`, `int`, `float`, `bool`, `null`, a
 - Mutation of JSON embedded in strings, including when the document root itself is an embedded JSON string.
 - Path listing with `tree`.
 - Search across keys, paths, values, and embedded JSON strings.
+- Search matching against both escaped paths and raw object key names.
 - Basic interactive menu using `prompt_toolkit`.
 
 ## Non-Goals For The MVP

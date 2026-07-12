@@ -45,12 +45,19 @@ def join_path(parent: str, part: str) -> str:
 
 def _key(container: Any, part: str):
     if isinstance(container, list):
-        if not part.isdigit():
-            raise TypeError(f"Array index must be numeric, got '{part}'")
-        return int(part)
+        return _array_index(container, part)
     if isinstance(container, dict):
         return part
     raise TypeError("Cannot traverse scalar value")
+
+
+def _array_index(container: list, part: str) -> int:
+    if not part.isdigit():
+        raise TypeError(f"Array index must be numeric, got '{part}'")
+    index = int(part)
+    if index >= len(container):
+        raise IndexError(index)
+    return index
 
 
 def _insert_index(container: list, part: str) -> int:
@@ -146,7 +153,7 @@ def delete_path(data: Any, path: str) -> Any:
 
         if len(remaining) == 1:
             if isinstance(working, list):
-                del working[int(part)]
+                del working[_array_index(working, part)]
             elif isinstance(working, dict):
                 del working[part]
             else:

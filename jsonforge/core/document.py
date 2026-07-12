@@ -32,6 +32,10 @@ class JsonDocument:
         return backup_path
 
     def save(self, backup: bool = True) -> Path | None:
+        if self.path.is_symlink():
+            raise ValueError("Refusing to replace symlink; edit the target path directly")
+
+        original_stat = self.path.stat() if self.path.exists() else None
         backup_path = self.backup() if backup and self.path.exists() else None
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -52,7 +56,16 @@ class JsonDocument:
             with tmp_path.open("r", encoding="utf-8") as handle:
                 load(handle)
 
+            if original_stat is not None:
+                shutil.copystat(self.path, tmp_path)
+                os.chmod(tmp_path, original_stat.st_mode)
+
             os.replace(tmp_path, self.path)
+            dir_fd = os.open(self.path.parent, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
         except Exception:
             try:
                 tmp_path.unlink()

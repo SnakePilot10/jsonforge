@@ -89,6 +89,18 @@ class PathTests(unittest.TestCase):
         self.assertIsInstance(data, str)
         self.assertNotIn("theme", json.loads(data))
 
+    def test_delete_path_rejects_negative_array_index(self):
+        data = {"items": ["a", "b"]}
+        with self.assertRaises(TypeError):
+            delete_path(data, "items.-1")
+        self.assertEqual(data["items"], ["a", "b"])
+
+    def test_delete_path_rejects_non_numeric_array_index(self):
+        data = {"items": ["a", "b"]}
+        with self.assertRaises(TypeError):
+            delete_path(data, "items.one")
+        self.assertEqual(data["items"], ["a", "b"])
+
     def test_iter_paths_and_completions_include_embedded_paths(self):
         data = {"settings": '{"enabled":true}'}
         paths = [path for path, _ in iter_paths(data)]

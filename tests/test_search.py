@@ -19,6 +19,16 @@ class SearchTests(unittest.TestCase):
         matches = list(search(data, "needle"))
         self.assertEqual(matches[0][0], "a\\.b")
 
+    def test_search_matches_raw_dotted_key(self):
+        data = {"a.b": 1}
+        matches = list(search(data, "a.b"))
+        self.assertEqual(matches, [("a\\.b", 1)])
+
+    def test_search_matches_raw_backslash_key(self):
+        data = {"a\\b": 1}
+        matches = list(search(data, "a\\b"))
+        self.assertEqual(matches, [("a\\\\b", 1)])
+
     def test_search_finds_json_null(self):
         data = {"value": None}
         matches = list(search(data, "null"))

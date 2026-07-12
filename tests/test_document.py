@@ -1,5 +1,7 @@
 import json
 import math
+import os
+import stat
 import tempfile
 import unittest
 from pathlib import Path
@@ -53,6 +55,34 @@ class DocumentTests(unittest.TestCase):
                 doc.save()
 
             self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"value": 1})
+
+    def test_save_preserves_file_mode(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            path.write_text(json.dumps({"value": 1}), encoding="utf-8")
+            path.chmod(0o640)
+            doc = JsonDocument.load(path)
+            doc.data["value"] = 2
+
+            doc.save()
+
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o640)
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "symlink not available")
+    def test_save_rejects_symlink_path(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target = Path(tmpdir) / "target.json"
+            link = Path(tmpdir) / "link.json"
+            target.write_text(json.dumps({"value": 1}), encoding="utf-8")
+            os.symlink(target, link)
+            doc = JsonDocument.load(link)
+            doc.data["value"] = 2
+
+            with self.assertRaises(ValueError):
+                doc.save()
+
+            self.assertTrue(link.is_symlink())
+            self.assertEqual(json.loads(target.read_text(encoding="utf-8")), {"value": 1})
 
 
 if __name__ == "__main__":

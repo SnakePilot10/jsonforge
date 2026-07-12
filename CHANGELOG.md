@@ -12,6 +12,11 @@
 - Fix mutations when the document root is a string containing embedded JSON.
 - Validate list insertion indexes consistently.
 - Make search match JSON scalar spelling such as `null`, `true`, and `false`.
+- Reject negative and non-numeric delete indexes for arrays.
+- Preserve basic file metadata during atomic saves.
+- Refuse saves through symlink paths to avoid replacing links.
+- Match search queries against raw object keys as well as escaped paths.
+- Handle strict JSON errors cleanly in shorthand interactive invocation.
 
 ## 0.1.0
 

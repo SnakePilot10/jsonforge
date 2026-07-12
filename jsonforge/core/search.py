@@ -39,6 +39,8 @@ def _search(data: Any, needle: str, path: str, emit) -> Iterator[tuple[str, Any]
     if isinstance(current, dict):
         for key, value in current.items():
             child_path = join_path(path, str(key))
+            if needle in str(key).lower():
+                yield from emit(child_path, value)
             yield from _search(value, needle, child_path, emit)
     elif isinstance(current, list):
         for index, value in enumerate(current):
