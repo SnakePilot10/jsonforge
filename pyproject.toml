@@ -1,0 +1,13 @@
+[project]
+name = "jsonforge"
+version = "0.1.0"
+description = "Universal terminal JSON editor with embedded JSON support."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["prompt_toolkit>=3.0"]
+
+[project.scripts]
+jsonforge = "jsonforge.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
