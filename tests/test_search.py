@@ -9,6 +9,16 @@ class SearchTests(unittest.TestCase):
         matches = list(search(data, "dark"))
         self.assertTrue(any(path == "settings.theme" for path, _ in matches))
 
+    def test_search_does_not_duplicate_path_matches(self):
+        data = {"theme": "theme"}
+        matches = list(search(data, "theme"))
+        self.assertEqual([path for path, _ in matches], ["theme"])
+
+    def test_search_escapes_dot_keys(self):
+        data = {"a.b": "needle"}
+        matches = list(search(data, "needle"))
+        self.assertEqual(matches[0][0], "a\\.b")
+
 
 if __name__ == "__main__":
     unittest.main()

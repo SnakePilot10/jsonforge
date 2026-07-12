@@ -1,13 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "jsonforge"
 version = "0.1.0"
 description = "Universal terminal JSON editor with embedded JSON support."
 readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "SnakePilot10" }]
 dependencies = ["prompt_toolkit>=3.0"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Utilities",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=9", "ruff>=0.8"]
+
+[project.urls]
+Repository = "https://github.com/SnakePilot10/jsonforge"
+Issues = "https://github.com/SnakePilot10/jsonforge/issues"
 
 [project.scripts]
 jsonforge = "jsonforge.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

@@ -2,7 +2,7 @@ import argparse
 import json
 import sys
 
-from .core.casting import smart_cast
+from .core.casting import parse_typed_value
 from .core.document import JsonDocument
 from .core.paths import add_path, delete_path, format_value, get_path, iter_paths, set_path
 from .core.search import search
@@ -24,7 +24,7 @@ def cmd_get(args) -> int:
 
 def cmd_set(args) -> int:
     doc = JsonDocument.load(args.file)
-    set_path(doc.data, args.path, smart_cast(args.value))
+    set_path(doc.data, args.path, parse_typed_value(args.value, args.type))
     backup_path = doc.save(backup=not args.no_backup)
     if backup_path:
         print(f"backup: {backup_path}")
@@ -34,7 +34,7 @@ def cmd_set(args) -> int:
 
 def cmd_add(args) -> int:
     doc = JsonDocument.load(args.file)
-    add_path(doc.data, args.path, smart_cast(args.value))
+    add_path(doc.data, args.path, parse_typed_value(args.value, args.type), force=args.force)
     backup_path = doc.save(backup=not args.no_backup)
     if backup_path:
         print(f"backup: {backup_path}")
@@ -93,6 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
     set_cmd.add_argument("file")
     set_cmd.add_argument("path")
     set_cmd.add_argument("value")
+    set_cmd.add_argument("--type", choices=["auto", "string", "int", "float", "bool", "null", "json"], default="auto")
     set_cmd.add_argument("--no-backup", action="store_true")
     set_cmd.set_defaults(func=cmd_set)
 
@@ -100,6 +101,8 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("file")
     add.add_argument("path")
     add.add_argument("value")
+    add.add_argument("--type", choices=["auto", "string", "int", "float", "bool", "null", "json"], default="auto")
+    add.add_argument("--force", action="store_true", help="Replace an existing object key")
     add.add_argument("--no-backup", action="store_true")
     add.set_defaults(func=cmd_add)
 

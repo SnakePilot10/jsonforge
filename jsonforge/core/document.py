@@ -1,5 +1,7 @@
 import json
+import os
 import shutil
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -30,9 +32,32 @@ class JsonDocument:
 
     def save(self, backup: bool = True) -> Path | None:
         backup_path = self.backup() if backup and self.path.exists() else None
-        with self.path.open("w", encoding="utf-8") as handle:
-            json.dump(self.data, handle, indent=2, ensure_ascii=False)
-            handle.write("\n")
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+
+        fd, tmp_name = tempfile.mkstemp(
+            prefix=f".{self.path.name}.",
+            suffix=".tmp",
+            dir=self.path.parent,
+            text=True,
+        )
+        tmp_path = Path(tmp_name)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(self.data, handle, indent=2, ensure_ascii=False)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+
+            with tmp_path.open("r", encoding="utf-8") as handle:
+                json.load(handle)
+
+            os.replace(tmp_path, self.path)
+        except Exception:
+            try:
+                tmp_path.unlink()
+            except FileNotFoundError:
+                pass
+            raise
         return backup_path
 
     def root_keys(self) -> list[str]:

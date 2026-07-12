@@ -2,7 +2,7 @@
 
 JsonForge is a universal terminal JSON editor focused on safe edits, deep paths, and JSON embedded inside strings.
 
-The project starts with a small `prompt_toolkit` interface and a CLI that can validate, read, set, and search any JSON file.
+The project starts with a small `prompt_toolkit` interface and a CLI that can validate, read, set, add, delete, search, and list paths in any JSON file.
 
 ## Why It Exists
 
@@ -47,12 +47,14 @@ Set a path with automatic backup:
 
 ```bash
 python -m jsonforge set file.json settings.enabled true
+python -m jsonforge set file.json device.id 00123 --type string
 ```
 
 Add a key or append to an array:
 
 ```bash
 python -m jsonforge add file.json settings.new_key '{"nested":true}'
+python -m jsonforge add file.json settings.new_key replacement --force
 python -m jsonforge add file.json items.- new_item
 ```
 
@@ -83,17 +85,51 @@ Paths are dot-separated:
 object.key
 array.0.name
 settings.embedded.key
+literal\.dot.key
+literal\\backslash.key
 ```
 
-Array indexes are numeric path segments. Object keys that contain literal dots are not supported yet.
+Array indexes are numeric path segments only when the current container is an array. Numeric object keys stay strings, so `0` can address either object key `"0"` or array index `0` depending on the current value.
+
+Use backslash escaping for object keys containing dots or backslashes:
+
+```bash
+python -m jsonforge get file.json 'a\.b'
+python -m jsonforge get file.json 'a\\b'
+```
+
+## Value Types
+
+By default, `set` and `add` use automatic casting:
+
+```text
+true -> boolean true
+false -> boolean false
+null -> JSON null
+42 -> integer
+3.14 -> float
+{"a":1} -> object
+hello -> string
+```
+
+If a value must stay a string, pass `--type string`:
+
+```bash
+python -m jsonforge set file.json device.id 00123 --type string
+```
+
+Supported explicit types are `auto`, `string`, `int`, `float`, `bool`, `null`, and `json`.
 
 ## Current Scope
 
 - Universal JSON load/save.
 - Backup before write.
+- Atomic save using temp-file replacement.
 - Smart value casting.
+- Explicit value typing with `--type`.
 - Dot-path `get` and `set`.
 - Dot-path `add` and `delete`.
+- Escaped dots and backslashes in path segments.
 - Path listing with `tree`.
 - Search across keys, paths, values, and embedded JSON strings.
 - Basic interactive menu using `prompt_toolkit`.
