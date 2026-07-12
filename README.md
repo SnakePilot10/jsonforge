@@ -16,6 +16,8 @@ Real JSON files often contain nested data in awkward forms, including JSON seria
 
 JsonForge treats that string as editable structure when traversing paths, then writes it back as a string so the original shape is preserved.
 
+JsonForge also rejects non-standard JSON constants such as `NaN`, `Infinity`, and `-Infinity` during load, cast, and save operations.
+
 ## Install For Development
 
 ```bash
@@ -125,11 +127,13 @@ Supported explicit types are `auto`, `string`, `int`, `float`, `bool`, `null`, a
 - Universal JSON load/save.
 - Backup before write.
 - Atomic save using temp-file replacement.
+- Strict JSON constants: `NaN` and `Infinity` are rejected.
 - Smart value casting.
 - Explicit value typing with `--type`.
 - Dot-path `get` and `set`.
 - Dot-path `add` and `delete`.
 - Escaped dots and backslashes in path segments.
+- Mutation of JSON embedded in strings, including when the document root itself is an embedded JSON string.
 - Path listing with `tree`.
 - Search across keys, paths, values, and embedded JSON strings.
 - Basic interactive menu using `prompt_toolkit`.

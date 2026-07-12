@@ -19,6 +19,11 @@ class SearchTests(unittest.TestCase):
         matches = list(search(data, "needle"))
         self.assertEqual(matches[0][0], "a\\.b")
 
+    def test_search_finds_json_null(self):
+        data = {"value": None}
+        matches = list(search(data, "null"))
+        self.assertEqual(matches, [("value", None)])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -15,6 +15,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Saving creates timestamped backups by default for destructive write operations.
 - Backup names include collision handling so multiple writes in the same second do not overwrite earlier backups.
 - Saves are atomic: data is written to a temporary file, flushed, fsynced, validated, and then swapped into place with `os.replace()`.
+- JSON handling is strict: `NaN`, `Infinity`, and `-Infinity` are rejected during load, cast, and save.
 
 ## Completed
 
@@ -40,13 +41,17 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Made `add` fail on existing object keys unless `--force` is used.
 - Added explicit CLI value type parsing via `--type`.
 - Deduplicated search output.
+- Fixed root embedded JSON mutation by making mutating path helpers return the updated root.
+- Rejected non-standard JSON constants during validation, parsing, casting, and saving.
+- Tightened array insertion semantics so out-of-range and negative indexes fail instead of silently appending or inserting from the end.
+- Made search match JSON scalar spellings like `null`, `true`, and `false`.
 - Added package metadata, MIT license, changelog, contributing notes, and GitHub Actions tests.
 - Added initial README.
 - Added initial unit tests for casting, embedded JSON, paths, and search.
 
 ## In Progress
 
-- Safe writes and path engine v2 are implemented. Next work should focus on richer interactive tree navigation and compact/pretty output controls.
+- Safe writes, strict JSON handling, and path engine v2 are implemented. Next work should focus on richer interactive tree navigation and compact/pretty output controls.
 
 ## Next Steps
 
@@ -57,7 +62,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 ## Known Issues
 
 - Original JSON formatting is not preserved; files are written with two-space indentation.
-- Root-level scalar strings containing embedded JSON are not yet replaceable through the mutating path helpers because helpers currently mutate containers in place.
+- Root replacement for scalar non-container documents is still intentionally unsupported by path helpers.
 
 ## Test Notes
 
@@ -77,3 +82,5 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - `python -m pytest` passed: 26 tests.
 - `python -m pip install -e .` passed after adding `build-system` and project metadata.
 - CLI smoke tests passed for escaped dot paths, `--type string`, `add` duplicate rejection, and `python -m jsonforge search` returning exit code 1 on no matches.
+- `python -m pytest` passed: 37 tests after strict JSON and root embedded JSON regression coverage.
+- CLI smoke tests passed for root embedded JSON mutation and `validate` rejecting `Infinity` with exit code 2.

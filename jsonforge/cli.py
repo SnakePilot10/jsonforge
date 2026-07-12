@@ -24,7 +24,7 @@ def cmd_get(args) -> int:
 
 def cmd_set(args) -> int:
     doc = JsonDocument.load(args.file)
-    set_path(doc.data, args.path, parse_typed_value(args.value, args.type))
+    doc.data = set_path(doc.data, args.path, parse_typed_value(args.value, args.type))
     backup_path = doc.save(backup=not args.no_backup)
     if backup_path:
         print(f"backup: {backup_path}")
@@ -34,7 +34,7 @@ def cmd_set(args) -> int:
 
 def cmd_add(args) -> int:
     doc = JsonDocument.load(args.file)
-    add_path(doc.data, args.path, parse_typed_value(args.value, args.type), force=args.force)
+    doc.data = add_path(doc.data, args.path, parse_typed_value(args.value, args.type), force=args.force)
     backup_path = doc.save(backup=not args.no_backup)
     if backup_path:
         print(f"backup: {backup_path}")
@@ -44,7 +44,7 @@ def cmd_add(args) -> int:
 
 def cmd_delete(args) -> int:
     doc = JsonDocument.load(args.file)
-    delete_path(doc.data, args.path)
+    doc.data = delete_path(doc.data, args.path)
     backup_path = doc.save(backup=not args.no_backup)
     if backup_path:
         print(f"backup: {backup_path}")

@@ -23,6 +23,14 @@ class SmartCastTests(unittest.TestCase):
     def test_parse_typed_value_json(self):
         self.assertEqual(parse_typed_value('[1, 2]', "json"), [1, 2])
 
+    def test_reject_infinity_from_auto_cast(self):
+        with self.assertRaises(ValueError):
+            smart_cast("1e999")
+
+    def test_reject_nan_from_json_type(self):
+        with self.assertRaises(ValueError):
+            parse_typed_value('{"value": NaN}', "json")
+
 
 if __name__ == "__main__":
     unittest.main()

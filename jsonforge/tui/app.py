@@ -45,7 +45,7 @@ def run_interactive(json_file: str) -> None:
                 current = get_path(doc.data, path).value
                 print("Current:", format_value(current))
                 value = smart_cast(ask("New value: "))
-                set_path(doc.data, path, value)
+                doc.data = set_path(doc.data, path, value)
                 dirty = True
                 print("Updated.")
             except (KeyError, IndexError, TypeError, ValueError) as exc:
@@ -64,7 +64,7 @@ def run_interactive(json_file: str) -> None:
             path = ask("New path (use '-' to append to arrays): ")
             try:
                 value = smart_cast(ask("Value: "))
-                add_path(doc.data, path, value)
+                doc.data = add_path(doc.data, path, value)
                 dirty = True
                 print("Added.")
             except (KeyError, IndexError, TypeError, ValueError) as exc:
@@ -76,14 +76,18 @@ def run_interactive(json_file: str) -> None:
                 print("Delete cancelled.")
                 continue
             try:
-                delete_path(doc.data, path)
+                doc.data = delete_path(doc.data, path)
                 dirty = True
                 print("Deleted.")
             except (KeyError, IndexError, TypeError, ValueError) as exc:
                 print("Error:", exc)
         elif choice == "7":
             raw_depth = ask("Max depth (blank for 2): ").strip()
-            max_depth = int(raw_depth) if raw_depth else 2
+            try:
+                max_depth = int(raw_depth) if raw_depth else 2
+            except ValueError:
+                print("Depth must be a number.")
+                continue
             for path, value in iter_paths(doc.data, max_depth=max_depth):
                 type_name = type(value).__name__
                 print(f"{path} ({type_name})")

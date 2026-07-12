@@ -4,6 +4,16 @@ from .embedded_json import decode_if_embedded_json
 from .paths import join_path
 
 
+def _searchable_scalar(value: Any) -> str:
+    if value is None:
+        return "null"
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    return str(value)
+
+
 def search(data: Any, query: str, path: str = "") -> Iterator[tuple[str, Any]]:
     needle = query.lower()
 
@@ -22,7 +32,7 @@ def _search(data: Any, needle: str, path: str, emit) -> Iterator[tuple[str, Any]
     current = decoded.value
 
     path_matches = bool(path and needle in path.lower())
-    value_matches = not isinstance(current, (dict, list)) and needle in str(current).lower()
+    value_matches = not isinstance(current, (dict, list)) and needle in _searchable_scalar(current).lower()
     if path_matches or value_matches:
         yield from emit(path, current)
 

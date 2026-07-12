@@ -1,4 +1,3 @@
-import json
 import os
 import shutil
 import tempfile
@@ -6,6 +5,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from .strict_json import dump, load
 
 
 @dataclass
@@ -17,7 +18,7 @@ class JsonDocument:
     def load(cls, path: str | Path) -> "JsonDocument":
         doc_path = Path(path).expanduser()
         with doc_path.open("r", encoding="utf-8") as handle:
-            data = json.load(handle)
+            data = load(handle)
         return cls(doc_path, data)
 
     def backup(self) -> Path:
@@ -43,13 +44,13 @@ class JsonDocument:
         tmp_path = Path(tmp_name)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                json.dump(self.data, handle, indent=2, ensure_ascii=False)
+                dump(self.data, handle, indent=2, ensure_ascii=False)
                 handle.write("\n")
                 handle.flush()
                 os.fsync(handle.fileno())
 
             with tmp_path.open("r", encoding="utf-8") as handle:
-                json.load(handle)
+                load(handle)
 
             os.replace(tmp_path, self.path)
         except Exception:

@@ -2,6 +2,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from .strict_json import dumps, loads
+
 
 @dataclass
 class DecodedValue:
@@ -19,13 +21,13 @@ def decode_if_embedded_json(value: Any) -> DecodedValue:
         return DecodedValue(value, False)
 
     try:
-        decoded = json.loads(stripped)
-    except json.JSONDecodeError:
+        decoded = loads(stripped)
+    except (json.JSONDecodeError, ValueError):
         return DecodedValue(value, False)
     return DecodedValue(decoded, True)
 
 
 def encode_if_needed(value: Any, was_embedded_json: bool) -> Any:
     if was_embedded_json:
-        return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+        return dumps(value, ensure_ascii=False, separators=(",", ":"))
     return value

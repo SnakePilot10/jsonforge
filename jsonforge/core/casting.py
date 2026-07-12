@@ -1,5 +1,6 @@
-import json
 from typing import Literal
+
+from .strict_json import loads, validate_json_number
 
 
 ValueType = Literal["auto", "string", "int", "float", "bool", "null", "json"]
@@ -18,15 +19,17 @@ def smart_cast(value: str):
 
     if text and text[0] in "[{\"":
         try:
-            return json.loads(text)
-        except json.JSONDecodeError:
+            return loads(text)
+        except ValueError:
             pass
 
     try:
         if any(ch in text for ch in ".eE"):
-            return float(text)
+            return validate_json_number(float(text))
         return int(text)
-    except ValueError:
+    except ValueError as exc:
+        if "NaN or Infinity" in str(exc):
+            raise
         return value
 
 
@@ -38,7 +41,7 @@ def parse_typed_value(value: str, value_type: ValueType = "auto"):
     if value_type == "int":
         return int(value)
     if value_type == "float":
-        return float(value)
+        return validate_json_number(float(value))
     if value_type == "bool":
         lowered = value.strip().lower()
         if lowered in {"true", "1", "yes", "y"}:
@@ -49,5 +52,5 @@ def parse_typed_value(value: str, value_type: ValueType = "auto"):
     if value_type == "null":
         return None
     if value_type == "json":
-        return json.loads(value)
+        return loads(value)
     raise ValueError(f"Unsupported value type: {value_type}")

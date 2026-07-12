@@ -53,6 +53,17 @@ def _key(container: Any, part: str):
     raise TypeError("Cannot traverse scalar value")
 
 
+def _insert_index(container: list, part: str) -> int:
+    if part == "-":
+        return len(container)
+    if not part.isdigit():
+        raise TypeError(f"Array insert index must be numeric or '-', got '{part}'")
+    index = int(part)
+    if index > len(container):
+        raise IndexError(index)
+    return index
+
+
 def get_path(data: Any, path: str) -> PathMatch:
     current = data
     decoded = 0
@@ -71,7 +82,7 @@ def get_path(data: Any, path: str) -> PathMatch:
     return PathMatch(current, decoded)
 
 
-def set_path(data: Any, path: str, value: Any) -> None:
+def set_path(data: Any, path: str, value: Any) -> Any:
     parts = split_path(path)
     if not parts:
         raise ValueError("Cannot replace document root through set_path")
@@ -92,10 +103,10 @@ def set_path(data: Any, path: str, value: Any) -> None:
 
         return encode_if_needed(working, decoded.was_embedded_json)
 
-    set_inner(data, parts)
+    return set_inner(data, parts)
 
 
-def add_path(data: Any, path: str, value: Any, force: bool = False) -> None:
+def add_path(data: Any, path: str, value: Any, force: bool = False) -> Any:
     parts = split_path(path)
     if not parts:
         raise ValueError("Path is required")
@@ -107,10 +118,7 @@ def add_path(data: Any, path: str, value: Any, force: bool = False) -> None:
 
         if len(remaining) == 1:
             if isinstance(working, list):
-                if part == "-":
-                    working.append(value)
-                else:
-                    working.insert(int(part), value)
+                working.insert(_insert_index(working, part), value)
             elif isinstance(working, dict):
                 if part in working and not force:
                     raise KeyError(f"Path already exists: {part}")
@@ -123,10 +131,10 @@ def add_path(data: Any, path: str, value: Any, force: bool = False) -> None:
 
         return encode_if_needed(working, decoded.was_embedded_json)
 
-    add_inner(data, parts)
+    return add_inner(data, parts)
 
 
-def delete_path(data: Any, path: str) -> None:
+def delete_path(data: Any, path: str) -> Any:
     parts = split_path(path)
     if not parts:
         raise ValueError("Cannot delete document root")
@@ -149,7 +157,7 @@ def delete_path(data: Any, path: str) -> None:
 
         return encode_if_needed(working, decoded.was_embedded_json)
 
-    delete_inner(data, parts)
+    return delete_inner(data, parts)
 
 
 def iter_paths(data: Any, path: str = "", max_depth: int | None = None) -> list[tuple[str, Any]]:

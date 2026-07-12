@@ -25,13 +25,19 @@ class PathTests(unittest.TestCase):
 
     def test_set_path_preserves_embedded_json_string(self):
         data = {"settings": '{"enabled":false,"theme":"dark"}'}
-        set_path(data, "settings.enabled", True)
+        data = set_path(data, "settings.enabled", True)
         self.assertIsInstance(data["settings"], str)
         self.assertIs(json.loads(data["settings"])["enabled"], True)
 
+    def test_root_embedded_json_set(self):
+        data = '{"enabled":false}'
+        data = set_path(data, "enabled", True)
+        self.assertIsInstance(data, str)
+        self.assertIs(json.loads(data)["enabled"], True)
+
     def test_add_path_to_object(self):
         data = {"settings": {}}
-        add_path(data, "settings.enabled", True)
+        data = add_path(data, "settings.enabled", True)
         self.assertIs(data["settings"]["enabled"], True)
 
     def test_add_path_rejects_existing_object_key(self):
@@ -47,19 +53,41 @@ class PathTests(unittest.TestCase):
 
     def test_add_path_to_embedded_object(self):
         data = {"settings": "{}"}
-        add_path(data, "settings.enabled", True)
+        data = add_path(data, "settings.enabled", True)
         self.assertIsInstance(data["settings"], str)
         self.assertIs(json.loads(data["settings"])["enabled"], True)
 
+    def test_root_embedded_json_add(self):
+        data = "{}"
+        data = add_path(data, "enabled", True)
+        self.assertIsInstance(data, str)
+        self.assertIs(json.loads(data)["enabled"], True)
+
     def test_add_path_appends_to_array(self):
         data = {"items": ["a"]}
-        add_path(data, "items.-", "b")
+        data = add_path(data, "items.-", "b")
         self.assertEqual(data["items"], ["a", "b"])
+
+    def test_add_path_rejects_out_of_range_array_index(self):
+        data = {"items": ["a"]}
+        with self.assertRaises(IndexError):
+            add_path(data, "items.999", "b")
+
+    def test_add_path_rejects_negative_array_index(self):
+        data = {"items": ["a"]}
+        with self.assertRaises(TypeError):
+            add_path(data, "items.-1", "b")
 
     def test_delete_path_from_embedded_object(self):
         data = {"settings": '{"enabled":true,"theme":"dark"}'}
-        delete_path(data, "settings.theme")
+        data = delete_path(data, "settings.theme")
         self.assertNotIn("theme", json.loads(data["settings"]))
+
+    def test_root_embedded_json_delete(self):
+        data = '{"enabled":true,"theme":"dark"}'
+        data = delete_path(data, "theme")
+        self.assertIsInstance(data, str)
+        self.assertNotIn("theme", json.loads(data))
 
     def test_iter_paths_and_completions_include_embedded_paths(self):
         data = {"settings": '{"enabled":true}'}
