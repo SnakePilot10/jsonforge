@@ -105,7 +105,7 @@ literal\.dot.key
 literal\\backslash.key
 ```
 
-Array indexes are numeric path segments only when the current container is an array. Numeric object keys stay strings, so `0` can address either object key `"0"` or array index `0` depending on the current value.
+Array indexes are numeric path segments only when the current container is an array. Numeric object keys stay strings, so `0` can address either object key `"0"` or array index `0` depending on the current value. Array indexes must be `0` or ASCII digits without leading zeroes.
 
 Use backslash escaping for object keys containing dots or backslashes:
 

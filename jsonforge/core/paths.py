@@ -1,9 +1,12 @@
 import json
+import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
 from .embedded_json import decode_if_embedded_json, encode_if_needed
+
+ARRAY_INDEX_PATTERN = re.compile(r"0|[1-9][0-9]*")
 
 
 @dataclass
@@ -25,10 +28,9 @@ class JsonPath:
         return parse_json_pointer(pointer)
 
     def to_dot(self) -> str:
-        current = ""
-        for part in self.parts:
-            current = join_path(current, part)
-        return current
+        if self.parts == ("",):
+            raise ValueError("This path cannot be represented unambiguously as a dot path")
+        return ".".join(escape_path_part(part) for part in self.parts)
 
     def to_pointer(self) -> str:
         return to_json_pointer(self)
@@ -115,8 +117,8 @@ def _key(container: Any, part: str):
 
 
 def _array_index(container: list, part: str) -> int:
-    if not part.isdigit():
-        raise TypeError(f"Array index must be numeric, got '{part}'")
+    if not ARRAY_INDEX_PATTERN.fullmatch(part):
+        raise TypeError(f"Invalid array index: {part!r}")
     index = int(part)
     if index >= len(container):
         raise IndexError(index)
@@ -126,8 +128,8 @@ def _array_index(container: list, part: str) -> int:
 def _insert_index(container: list, part: str) -> int:
     if part == "-":
         return len(container)
-    if not part.isdigit():
-        raise TypeError(f"Array insert index must be numeric or '-', got '{part}'")
+    if not ARRAY_INDEX_PATTERN.fullmatch(part):
+        raise TypeError(f"Invalid array insert index: {part!r}")
     index = int(part)
     if index > len(container):
         raise IndexError(index)

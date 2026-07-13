@@ -20,6 +20,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Duplicate object keys are rejected during load and validation unless compatibility is requested explicitly.
 - Path traversal and search use iterative stacks so callers can consume bounded result sets incrementally.
 - `JsonPath` is the initial structured path representation. JSON Pointer parsing/formatting is implemented for canonical addressing and is currently wired into `get`.
+- Array indexes now require strict ASCII JSON Pointer-style spelling: `0` or digits without leading zeroes.
 
 ## Completed
 
@@ -69,6 +70,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Made display search use compact placeholders for containers instead of serializing full subtrees.
 - Aligned display search with rendered search output for strings and escaped scalar values.
 - Started Path Engine v3 by adding `JsonPath`, JSON Pointer parsing/formatting, and `get --path-format pointer`.
+- Hardened `JsonPath.to_dot()` so the single empty key is not rendered as the document root, and tightened array index parsing.
 
 ## In Progress
 
@@ -87,7 +89,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 
 - Original JSON formatting is not preserved; files are written with two-space indentation.
 - Root replacement for scalar non-container documents is still intentionally unsupported by path helpers.
-- Dot-path display still cannot represent every possible key safely; JSON Pointer remains planned for canonical paths.
+- Dot-path display still cannot represent every possible key safely; the single empty key is rejected during `JsonPath.to_dot()` conversion.
 - Flat interactive path completion is bounded and may omit paths that appear after the completion limit in very large documents.
 - Deep mutations are still recursive and can hit Python recursion limits on extremely deep documents.
 - Safe writes still preserve the old file mtime and do not yet detect external modification after load.
@@ -121,3 +123,6 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - `python -m pytest` passed: 73 tests after strict preserve-mode, embedded-node replacement, scope validation, and compact display-search regressions.
 - `python -m pytest` passed: 78 tests after display-output alignment and additional embedded string-storage regressions.
 - `python -m pytest` passed: 87 tests after introducing `JsonPath`, JSON Pointer parsing/formatting, and pointer `get` coverage.
+- `ruff check .` passed after hardening `JsonPath.to_dot()` and array index parsing.
+- `python -m compileall jsonforge` passed after hardening `JsonPath.to_dot()` and array index parsing.
+- `python -m pytest` passed: 95 tests after adding ambiguous dot conversion and strict array index regressions.

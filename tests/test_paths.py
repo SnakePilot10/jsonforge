@@ -34,6 +34,16 @@ class PathTests(unittest.TestCase):
         self.assertEqual(JsonPath.from_pointer("/"), JsonPath(("",)))
         self.assertEqual(JsonPath(("",)).to_pointer(), "/")
 
+    def test_json_path_to_dot_rejects_single_empty_key(self):
+        with self.assertRaises(ValueError):
+            JsonPath.from_pointer("/").to_dot()
+
+    def test_json_path_to_dot_preserves_leading_empty_key_when_unambiguous(self):
+        self.assertEqual(JsonPath.from_pointer("//name").to_dot(), ".name")
+
+    def test_json_path_to_dot_escapes_dot_keys(self):
+        self.assertEqual(JsonPath(("a.b", "c\\d")).to_dot(), "a\\.b.c\\\\d")
+
     def test_json_pointer_root(self):
         self.assertEqual(JsonPath.from_pointer(""), JsonPath(()))
         self.assertEqual(JsonPath(()).to_pointer(), "")
@@ -52,6 +62,18 @@ class PathTests(unittest.TestCase):
     def test_json_pointer_rejects_relative_pointer(self):
         with self.assertRaises(ValueError):
             JsonPath.from_pointer("users/0")
+
+    def test_json_pointer_array_index_rejects_leading_zero(self):
+        with self.assertRaises(TypeError):
+            get_path(["a", "b"], "/01", path_format="pointer")
+
+    def test_json_pointer_array_index_rejects_unicode_digit(self):
+        with self.assertRaises(TypeError):
+            get_path(["a", "b"], "/١", path_format="pointer")
+
+    def test_json_pointer_get_rejects_dash_array_index(self):
+        with self.assertRaises(TypeError):
+            get_path(["a", "b"], "/-", path_format="pointer")
 
     def test_numeric_object_keys_remain_strings(self):
         data = {"0": "zero", "items": ["first"]}
@@ -155,6 +177,11 @@ class PathTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             add_path(data, "items.-1", "b")
 
+    def test_add_path_rejects_leading_zero_array_index(self):
+        data = {"items": ["a", "b"]}
+        with self.assertRaises(TypeError):
+            add_path(data, "items.01", "c")
+
     def test_delete_path_from_embedded_object_requires_decode_embedded(self):
         data = {"settings": '{"enabled":true,"theme":"dark"}'}
         data = delete_path(data, "settings.theme", decode_embedded=True)
@@ -176,6 +203,12 @@ class PathTests(unittest.TestCase):
         data = {"items": ["a", "b"]}
         with self.assertRaises(TypeError):
             delete_path(data, "items.one")
+        self.assertEqual(data["items"], ["a", "b"])
+
+    def test_delete_path_rejects_leading_zero_array_index(self):
+        data = {"items": ["a", "b"]}
+        with self.assertRaises(TypeError):
+            delete_path(data, "items.01")
         self.assertEqual(data["items"], ["a", "b"])
 
     def test_iter_paths_and_completions_do_not_include_embedded_paths_by_default(self):

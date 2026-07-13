@@ -124,10 +124,15 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--allow-duplicate-keys", action="store_true")
     validate.set_defaults(func=cmd_validate)
 
-    get = subparsers.add_parser("get", help="Print value at a dot path")
+    get = subparsers.add_parser("get", help="Print the value at a JSON path")
     get.add_argument("file")
     get.add_argument("path")
-    get.add_argument("--path-format", choices=["dot", "pointer"], default="dot")
+    get.add_argument(
+        "--path-format",
+        choices=["dot", "pointer"],
+        default="dot",
+        help="Syntax used by PATH",
+    )
     get.add_argument(
         "--decode-embedded",
         action="store_true",
