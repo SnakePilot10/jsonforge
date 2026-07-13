@@ -17,6 +17,12 @@
 - Refuse saves through symlink paths to avoid replacing links.
 - Match search queries against raw object keys as well as escaped paths.
 - Handle strict JSON errors cleanly in shorthand interactive invocation.
+- Keep embedded JSON strings as strings unless `--decode-embedded` is requested.
+- Make path traversal lazy and iterative.
+- Add search scopes, exact matching, limits, offsets, and display-line matching.
+- Reject duplicate object keys during strict JSON load by default.
+- Add the large stress JSON fixture and bounded traversal/search tests.
+- Align the interactive menu with explicit search scopes, limits, offsets, embedded decoding, and typed edits.
 
 ## 0.1.0
 

@@ -58,6 +58,19 @@ class SearchTests(unittest.TestCase):
         matches = list(search(data, "needle", scope="value", limit=1, offset=1))
         self.assertEqual(matches, [("b", "needle")])
 
+    def test_search_limit_zero_returns_no_matches(self):
+        self.assertEqual(list(search({"a": "needle"}, "needle", limit=0)), [])
+
+    def test_search_display_matches_printed_line(self):
+        data = {"flags": {"tower_best_floor": 101}}
+        matches = list(search(data, "flags.tower_best_floor: 101", scope="display"))
+        self.assertEqual(matches, [("flags.tower_best_floor", 101)])
+
+    def test_search_all_does_not_match_descendants_by_ancestor_path(self):
+        data = {"flags": {"tower_best_floor": 101}}
+        matches = list(search(data, "flags"))
+        self.assertEqual(matches, [("flags", {"tower_best_floor": 101})])
+
 
 if __name__ == "__main__":
     unittest.main()

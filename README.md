@@ -86,8 +86,11 @@ Search keys, paths, and values:
 python -m jsonforge search file.json enabled
 python -m jsonforge search file.json enabled --in key --exact
 python -m jsonforge search file.json enabled --in value --limit 50 --offset 100
+python -m jsonforge search file.json 'flags.tower_best_floor: 101' --in display
 python -m jsonforge search file.json enabled --decode-embedded
 ```
+
+The default search scope is `all`, which checks keys and scalar values. Use `--in path` or `--in display` when you specifically want to match full paths or the printed `path: value` line.
 
 ## Path Syntax
 
@@ -154,7 +157,7 @@ Strings are strings unless a command explicitly receives `--decode-embedded`. Th
 - Escaped dots and backslashes in path segments.
 - Opt-in mutation of JSON embedded in strings, including when the document root itself is an embedded JSON string.
 - Path listing with `tree`.
-- Search across keys, paths, and values with scope, exact matching, limit, and offset options.
+- Search across keys and values by default, with explicit path/display scopes, exact matching, limit, and offset options.
 - Search matching against both escaped paths and raw object key names.
 - Basic interactive menu using `prompt_toolkit`.
 

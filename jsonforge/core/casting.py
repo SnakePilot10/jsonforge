@@ -53,3 +53,21 @@ def parse_typed_value(value: str, value_type: ValueType = "auto"):
     if value_type == "json":
         return loads(value)
     raise ValueError(f"Unsupported value type: {value_type}")
+
+
+def type_for_existing_value(value) -> ValueType:
+    if isinstance(value, bool):
+        return "bool"
+    if value is None:
+        return "null"
+    if isinstance(value, int):
+        return "int"
+    if isinstance(value, float):
+        return "float"
+    if isinstance(value, (dict, list)):
+        return "json"
+    return "string"
+
+
+def parse_preserving_type(value: str, current_value):
+    return parse_typed_value(value, type_for_existing_value(current_value))

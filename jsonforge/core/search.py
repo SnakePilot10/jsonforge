@@ -2,9 +2,9 @@ from collections.abc import Iterator
 from typing import Any, Literal
 
 from .embedded_json import decode_if_embedded_json
-from .paths import join_path
+from .paths import format_value, join_path
 
-SearchScope = Literal["key", "path", "value", "all"]
+SearchScope = Literal["key", "path", "value", "display", "all"]
 
 
 def _searchable_scalar(value: Any) -> str:
@@ -34,6 +34,8 @@ def search(
         raise ValueError("Search limit must not be negative")
     if offset < 0:
         raise ValueError("Search offset must not be negative")
+    if limit == 0:
+        return
 
     needle = query if exact else query.lower()
     skipped = emitted = 0
@@ -53,9 +55,8 @@ def search(
                 if limit is not None and emitted >= limit:
                     return
         if isinstance(current, dict):
-            children = list(current.items())
-            for key, child in reversed(children):
-                stack.append((child, join_path(current_path, str(key)), str(key)))
+            for key in reversed(current):
+                stack.append((current[key], join_path(current_path, str(key)), str(key)))
         elif isinstance(current, list):
             for index in range(len(current) - 1, -1, -1):
                 child_path = f"{current_path}.{index}" if current_path else str(index)
@@ -77,8 +78,12 @@ def _matches(
 ) -> bool:
     if scope in {"key", "all"} and key_name is not None and _text_matches(key_name, needle, exact):
         return True
-    if scope in {"path", "all"} and path and _text_matches(path, needle, exact):
+    if scope == "path" and path and _text_matches(path, needle, exact):
         return True
     if scope in {"value", "all"} and not isinstance(value, (dict, list)):
-        return _text_matches(_searchable_scalar(value), needle, exact)
+        if _text_matches(_searchable_scalar(value), needle, exact):
+            return True
+    if scope == "display" and path:
+        display = f"{path}: {format_value(value).replace(chr(10), ' ')}"
+        return _text_matches(display, needle, exact)
     return False

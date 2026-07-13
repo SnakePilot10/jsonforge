@@ -9,6 +9,20 @@ from .core.search import search
 from .tui.app import run_interactive
 
 
+def non_negative_int(value: str) -> int:
+    parsed = int(value)
+    if parsed < 0:
+        raise argparse.ArgumentTypeError("must be greater than or equal to 0")
+    return parsed
+
+
+def preview_size(value: str) -> int:
+    parsed = int(value)
+    if parsed < 3:
+        raise argparse.ArgumentTypeError("must be greater than or equal to 3")
+    return parsed
+
+
 def cmd_validate(args) -> int:
     JsonDocument.load(args.file, allow_duplicate_keys=args.allow_duplicate_keys)
     print("valid")
@@ -167,23 +181,23 @@ def build_parser() -> argparse.ArgumentParser:
     search_cmd.add_argument(
         "--in",
         dest="scope",
-        choices=["key", "path", "value", "all"],
+        choices=["key", "path", "value", "display", "all"],
         default="all",
     )
     search_cmd.add_argument("--exact", action="store_true")
-    search_cmd.add_argument("--limit", type=int, default=50)
-    search_cmd.add_argument("--offset", type=int, default=0)
+    search_cmd.add_argument("--limit", type=non_negative_int, default=50)
+    search_cmd.add_argument("--offset", type=non_negative_int, default=0)
     search_cmd.add_argument(
         "--decode-embedded",
         action="store_true",
         help="Search inside string values containing JSON arrays or objects",
     )
-    search_cmd.add_argument("--preview", type=int, default=120)
+    search_cmd.add_argument("--preview", type=preview_size, default=120)
     search_cmd.set_defaults(func=cmd_search)
 
     tree = subparsers.add_parser("tree", help="List paths in a JSON document")
     tree.add_argument("file")
-    tree.add_argument("--depth", type=int, default=2)
+    tree.add_argument("--depth", type=non_negative_int, default=2)
     tree.add_argument(
         "--decode-embedded",
         action="store_true",

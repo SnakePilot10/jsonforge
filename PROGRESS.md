@@ -11,12 +11,14 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Dot paths are the first supported addressing model because they are simple to type in a terminal.
 - Dot path conversion now depends on the current container: arrays use numeric indexes and objects keep string keys, including numeric-looking keys.
 - Dots and backslashes in object keys are escaped with backslashes in paths.
-- Strings containing JSON arrays or objects are decoded during traversal and re-encoded when edited, preserving the original string-backed storage shape.
+- Strings containing JSON arrays or objects stay strings by default. Traversal or mutation inside them is opt-in through `--decode-embedded` or the equivalent interactive prompt.
 - Saving creates timestamped backups by default for destructive write operations.
 - Backup names include collision handling so multiple writes in the same second do not overwrite earlier backups.
 - Saves are atomic: data is written to a temporary file, flushed, fsynced, validated, and then swapped into place with `os.replace()`.
 - Atomic saves preserve basic file metadata and reject symlink paths instead of replacing the link.
 - JSON handling is strict: `NaN`, `Infinity`, and `-Infinity` are rejected during load, cast, and save.
+- Duplicate object keys are rejected during load and validation unless compatibility is requested explicitly.
+- Path traversal and search use iterative stacks so callers can consume bounded result sets incrementally.
 
 ## Completed
 
@@ -52,21 +54,36 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Added package metadata, MIT license, changelog, contributing notes, and GitHub Actions tests.
 - Added initial README.
 - Added initial unit tests for casting, embedded JSON, paths, and search.
+- Made embedded JSON traversal opt-in and added `--decode-embedded` to relevant CLI commands.
+- Converted path listing to lazy iterative traversal.
+- Added bounded search with `key`, `path`, `value`, `display`, and `all` scopes, exact matching, limits, and offsets.
+- Fixed `limit=0` so it returns zero search results.
+- Added duplicate-key rejection to strict JSON loading with explicit compatibility opt-out.
+- Added the large stress JSON fixture under `tests/fixtures/json_stress_test.json`.
+- Added stress fixture tests for strict load, partial traversal, and bounded search.
+- Improved the interactive menu with explicit typed edits, search scope/exact/limit/offset prompts, embedded decode prompts, bounded tree output, and save error handling.
 
 ## In Progress
 
-- Safe writes, strict JSON handling, and path engine v2 are implemented. Next work should focus on richer interactive tree navigation and compact/pretty output controls.
+- Core semantics and bounded traversal/search are being stabilized for `0.2.0`. Next work should focus on canonical paths, safer writes, and replacing flat completions with contextual child completion.
 
 ## Next Steps
 
-- Add tree browsing mode.
-- Add better type previews and compact/pretty output modes.
-- Decide whether to stay with prompt-style UI or introduce a full-screen TUI later.
+- Implement `JsonPath` plus JSON Pointer as the canonical path representation.
+- Replace flat path completions with contextual completion by children of the current node.
+- Convert deep mutations (`set`, `add`, `delete`) from recursive helpers to iterative operations.
+- Harden safe writes: avoid preserving old mtimes, detect external modifications, and distinguish post-replace durability failures.
+- Add operation preview/dry-run support before destructive saves.
+- Add richer stress and property tests for paths, mutations, round-trips, and unusual keys.
 
 ## Known Issues
 
 - Original JSON formatting is not preserved; files are written with two-space indentation.
 - Root replacement for scalar non-container documents is still intentionally unsupported by path helpers.
+- Dot-path display still cannot represent every possible key safely; JSON Pointer remains planned for canonical paths.
+- Flat interactive path completion is bounded and may omit paths that appear after the completion limit in very large documents.
+- Deep mutations are still recursive and can hit Python recursion limits on extremely deep documents.
+- Safe writes still preserve the old file mtime and do not yet detect external modification after load.
 
 ## Test Notes
 
@@ -77,8 +94,8 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - `python -m pytest` passed: 16 tests after installing pytest globally.
 - `python -m jsonforge --help` passed.
 - `python -m jsonforge validate tests/fixtures/sample.json` passed.
-- `python -m jsonforge get tests/fixtures/sample.json settings.theme` returned `"dark"` through embedded JSON traversal.
-- `python -m jsonforge search tests/fixtures/sample.json dark` found `settings.theme`.
+- `python -m jsonforge get tests/fixtures/sample.json settings.theme --decode-embedded` returned `"dark"` through opt-in embedded JSON traversal.
+- `python -m jsonforge search tests/fixtures/sample.json dark --decode-embedded` found `settings.theme`.
 - `python -m jsonforge set /data/data/com.termux/files/home/.cache/opencode/tmp/jsonforge_sample.json settings.enabled true` passed on a temp copy and created a backup.
 - `python -m jsonforge add ... settings.extra 123`, `get`, `delete`, and `tree --depth 2` passed on a temp copy.
 - Consecutive `set` commands in the same second created unique backups using `_1` suffix collision handling.
@@ -89,3 +106,8 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - `python -m pytest` passed: 37 tests after strict JSON and root embedded JSON regression coverage.
 - CLI smoke tests passed for root embedded JSON mutation and `validate` rejecting `Infinity` with exit code 2.
 - `python -m pytest` passed: 44 tests after delete-index, metadata, symlink, raw-key search, and shorthand strict-error regressions.
+- `ruff check .` passed after core semantics/search updates.
+- `python -m pytest` passed: 54 tests after opt-in embedded JSON traversal, lazy path iteration, scoped search, and duplicate-key rejection.
+- `python -m pytest` passed: 57 tests after adding the large stress fixture.
+- `ruff check .` passed after search-boundary and interactive parity fixes.
+- `python -m pytest` passed: 65 tests after `limit=0`, display search, CLI validation, type preservation, and stress search coverage.

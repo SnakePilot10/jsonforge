@@ -1,6 +1,6 @@
 import unittest
 
-from jsonforge.core.casting import parse_typed_value, smart_cast
+from jsonforge.core.casting import parse_preserving_type, parse_typed_value, smart_cast
 
 
 class SmartCastTests(unittest.TestCase):
@@ -30,6 +30,12 @@ class SmartCastTests(unittest.TestCase):
     def test_reject_nan_from_json_type(self):
         with self.assertRaises(ValueError):
             parse_typed_value('{"value": NaN}', "json")
+
+    def test_parse_preserving_type_keeps_strings_as_strings(self):
+        self.assertEqual(parse_preserving_type("false", "true"), "false")
+
+    def test_parse_preserving_type_keeps_bool_as_bool(self):
+        self.assertIs(parse_preserving_type("false", True), False)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "jsonforge"
 version = "0.1.0"
-description = "Universal terminal JSON editor with embedded JSON support."
+description = "Universal terminal JSON editor with opt-in embedded JSON support."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"

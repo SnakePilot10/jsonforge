@@ -193,9 +193,8 @@ def iter_paths(
         if max_depth is not None and depth >= max_depth:
             continue
         if isinstance(current, dict):
-            children = list(current.items())
-            for key, child in reversed(children):
-                stack.append((child, join_path(current_path, str(key)), depth + 1))
+            for key in reversed(current):
+                stack.append((current[key], join_path(current_path, str(key)), depth + 1))
         elif isinstance(current, list):
             for index in range(len(current) - 1, -1, -1):
                 child_path = f"{current_path}.{index}" if current_path else str(index)
