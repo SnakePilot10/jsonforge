@@ -89,6 +89,22 @@ class PathTests(unittest.TestCase):
         set_path(data, "settings.enabled", True)
         self.assertIs(data["settings"]["enabled"], True)
 
+    def test_set_path_accepts_json_pointer(self):
+        data = {"users": [{"name": "Grace"}], "a/b": 1}
+        set_path(data, "/users/0/name", "Ada", path_format="pointer")
+        set_path(data, "/a~1b", 2, path_format="pointer")
+        self.assertEqual(data, {"users": [{"name": "Ada"}], "a/b": 2})
+
+    def test_set_path_accepts_json_path(self):
+        data = {"users": [{"name": "Grace"}]}
+        set_path(data, JsonPath(("users", "0", "name")), "Ada")
+        self.assertEqual(data["users"][0]["name"], "Ada")
+
+    def test_set_path_rejects_leading_zero_array_index(self):
+        data = {"items": ["a", "b"]}
+        with self.assertRaises(TypeError):
+            set_path(data, "items.01", "x")
+
     def test_set_path_does_not_traverse_embedded_json_string_by_default(self):
         data = {"settings": '{"enabled":false,"theme":"dark"}'}
         with self.assertRaises(TypeError):
@@ -167,6 +183,13 @@ class PathTests(unittest.TestCase):
         data = add_path(data, "items.-", "b")
         self.assertEqual(data["items"], ["a", "b"])
 
+    def test_add_path_accepts_json_pointer(self):
+        data = {"users": [{"name": "Ada"}], "a/b": {}}
+        add_path(data, "/users/-", {"name": "New"}, path_format="pointer")
+        add_path(data, "/a~1b/new", True, path_format="pointer")
+        self.assertEqual(data["users"], [{"name": "Ada"}, {"name": "New"}])
+        self.assertIs(data["a/b"]["new"], True)
+
     def test_add_path_rejects_out_of_range_array_index(self):
         data = {"items": ["a"]}
         with self.assertRaises(IndexError):
@@ -186,6 +209,12 @@ class PathTests(unittest.TestCase):
         data = {"settings": '{"enabled":true,"theme":"dark"}'}
         data = delete_path(data, "settings.theme", decode_embedded=True)
         self.assertNotIn("theme", json.loads(data["settings"]))
+
+    def test_delete_path_accepts_json_pointer(self):
+        data = {"users": [{"name": "Ada"}, {"name": "New"}], "obsolete": True}
+        delete_path(data, "/users/1", path_format="pointer")
+        delete_path(data, "/obsolete", path_format="pointer")
+        self.assertEqual(data, {"users": [{"name": "Ada"}]})
 
     def test_root_embedded_json_delete_requires_decode_embedded(self):
         data = '{"enabled":true,"theme":"dark"}'

@@ -48,6 +48,7 @@ def cmd_set(args) -> int:
         args.path,
         parse_typed_value(args.value, args.type),
         decode_embedded=args.decode_embedded,
+        path_format=args.path_format,
     )
     backup_path = doc.save(backup=not args.no_backup)
     if backup_path:
@@ -64,6 +65,7 @@ def cmd_add(args) -> int:
         parse_typed_value(args.value, args.type),
         force=args.force,
         decode_embedded=args.decode_embedded,
+        path_format=args.path_format,
     )
     backup_path = doc.save(backup=not args.no_backup)
     if backup_path:
@@ -74,7 +76,12 @@ def cmd_add(args) -> int:
 
 def cmd_delete(args) -> int:
     doc = JsonDocument.load(args.file)
-    doc.data = delete_path(doc.data, args.path, decode_embedded=args.decode_embedded)
+    doc.data = delete_path(
+        doc.data,
+        args.path,
+        decode_embedded=args.decode_embedded,
+        path_format=args.path_format,
+    )
     backup_path = doc.save(backup=not args.no_backup)
     if backup_path:
         print(f"backup: {backup_path}")
@@ -140,7 +147,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     get.set_defaults(func=cmd_get)
 
-    set_cmd = subparsers.add_parser("set", help="Set value at a dot path")
+    set_cmd = subparsers.add_parser("set", help="Set value at a JSON path")
     set_cmd.add_argument("file")
     set_cmd.add_argument("path")
     set_cmd.add_argument("value")
@@ -148,6 +155,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--type",
         choices=["auto", "string", "int", "float", "bool", "null", "json"],
         default="auto",
+    )
+    set_cmd.add_argument(
+        "--path-format",
+        choices=["dot", "pointer"],
+        default="dot",
+        help="Syntax used by PATH",
     )
     set_cmd.add_argument(
         "--decode-embedded",
@@ -168,6 +181,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add.add_argument("--force", action="store_true", help="Replace an existing object key")
     add.add_argument(
+        "--path-format",
+        choices=["dot", "pointer"],
+        default="dot",
+        help="Syntax used by PATH",
+    )
+    add.add_argument(
         "--decode-embedded",
         action="store_true",
         help="Allow additions inside string values containing JSON arrays or objects",
@@ -178,6 +197,12 @@ def build_parser() -> argparse.ArgumentParser:
     delete = subparsers.add_parser("delete", help="Delete object key or array item")
     delete.add_argument("file")
     delete.add_argument("path")
+    delete.add_argument(
+        "--path-format",
+        choices=["dot", "pointer"],
+        default="dot",
+        help="Syntax used by PATH",
+    )
     delete.add_argument(
         "--decode-embedded",
         action="store_true",

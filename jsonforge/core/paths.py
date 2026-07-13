@@ -170,8 +170,15 @@ def get_path(
     return PathMatch(current, decoded)
 
 
-def set_path(data: Any, path: str, value: Any, *, decode_embedded: bool = False) -> Any:
-    parts = split_path(path)
+def set_path(
+    data: Any,
+    path: str | JsonPath,
+    value: Any,
+    *,
+    decode_embedded: bool = False,
+    path_format: str = "dot",
+) -> Any:
+    parts = coerce_path(path, path_format=path_format).parts
     if not parts:
         raise ValueError("Cannot replace document root through set_path")
 
@@ -198,13 +205,14 @@ def set_path(data: Any, path: str, value: Any, *, decode_embedded: bool = False)
 
 def add_path(
     data: Any,
-    path: str,
+    path: str | JsonPath,
     value: Any,
     force: bool = False,
     *,
     decode_embedded: bool = False,
+    path_format: str = "dot",
 ) -> Any:
-    parts = split_path(path)
+    parts = coerce_path(path, path_format=path_format).parts
     if not parts:
         raise ValueError("Path is required")
 
@@ -231,8 +239,14 @@ def add_path(
     return add_inner(data, parts)
 
 
-def delete_path(data: Any, path: str, *, decode_embedded: bool = False) -> Any:
-    parts = split_path(path)
+def delete_path(
+    data: Any,
+    path: str | JsonPath,
+    *,
+    decode_embedded: bool = False,
+    path_format: str = "dot",
+) -> Any:
+    parts = coerce_path(path, path_format=path_format).parts
     if not parts:
         raise ValueError("Cannot delete document root")
 

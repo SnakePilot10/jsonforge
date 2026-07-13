@@ -55,6 +55,7 @@ Set a path with automatic backup:
 python -m jsonforge set file.json settings.enabled true
 python -m jsonforge set file.json device.id 00123 --type string
 python -m jsonforge set file.json settings.theme light --decode-embedded
+python -m jsonforge set file.json /users/0/name Ada --path-format pointer --type string
 ```
 
 Add a key or append to an array:
@@ -64,6 +65,7 @@ python -m jsonforge add file.json settings.new_key '{"nested":true}'
 python -m jsonforge add file.json settings.new_key replacement --force
 python -m jsonforge add file.json items.- new_item
 python -m jsonforge add file.json settings.new_key true --decode-embedded
+python -m jsonforge add file.json /users/- '{"name":"New"}' --path-format pointer --type json
 ```
 
 Delete a key or array index:
@@ -72,6 +74,7 @@ Delete a key or array index:
 python -m jsonforge delete file.json settings.old_key
 python -m jsonforge delete file.json items.0
 python -m jsonforge delete file.json settings.old_key --decode-embedded
+python -m jsonforge delete file.json /obsolete --path-format pointer
 ```
 
 List paths:
@@ -114,7 +117,7 @@ python -m jsonforge get file.json 'a\.b'
 python -m jsonforge get file.json 'a\\b'
 ```
 
-JSON Pointer is available as the canonical path format for `get`:
+JSON Pointer is available as the canonical path format for `get`, `set`, `add`, and `delete`:
 
 ```bash
 python -m jsonforge get file.json '/users/0/name' --path-format pointer
@@ -165,7 +168,7 @@ Strings are strings unless a command explicitly receives `--decode-embedded`. Th
 - Smart value casting.
 - Explicit value typing with `--type`.
 - Dot-path `get` and `set`.
-- Initial `JsonPath` representation and JSON Pointer support for `get`.
+- Initial `JsonPath` representation and JSON Pointer support for `get`, `set`, `add`, and `delete`.
 - Dot-path `add` and `delete`.
 - Escaped dots and backslashes in path segments.
 - Opt-in mutation of JSON embedded in strings, including when the document root itself is an embedded JSON string.
