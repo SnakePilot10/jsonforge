@@ -46,6 +46,7 @@ Read a path:
 ```bash
 python -m jsonforge get file.json users.0.name
 python -m jsonforge get file.json settings.theme --decode-embedded
+python -m jsonforge get file.json /users/0/name --path-format pointer
 ```
 
 Set a path with automatic backup:
@@ -94,7 +95,7 @@ The default search scope is `all`, which checks keys and scalar values. Use `--i
 
 ## Path Syntax
 
-Paths are dot-separated:
+Dot paths are the default interactive syntax:
 
 ```text
 object.key
@@ -112,6 +113,17 @@ Use backslash escaping for object keys containing dots or backslashes:
 python -m jsonforge get file.json 'a\.b'
 python -m jsonforge get file.json 'a\\b'
 ```
+
+JSON Pointer is available as the canonical path format for `get`:
+
+```bash
+python -m jsonforge get file.json '/users/0/name' --path-format pointer
+python -m jsonforge get file.json '/a~1b' --path-format pointer
+python -m jsonforge get file.json '/a~0b' --path-format pointer
+python -m jsonforge get file.json '/' --path-format pointer
+```
+
+JSON Pointer escapes `~` as `~0` and `/` as `~1`. The pointer `/` addresses an empty object key at the document root; the empty pointer addresses the whole document.
 
 ## Value Types
 
@@ -153,6 +165,7 @@ Strings are strings unless a command explicitly receives `--decode-embedded`. Th
 - Smart value casting.
 - Explicit value typing with `--type`.
 - Dot-path `get` and `set`.
+- Initial `JsonPath` representation and JSON Pointer support for `get`.
 - Dot-path `add` and `delete`.
 - Escaped dots and backslashes in path segments.
 - Opt-in mutation of JSON embedded in strings, including when the document root itself is an embedded JSON string.

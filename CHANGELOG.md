@@ -28,6 +28,7 @@
 - Validate interactive choices and reject unsupported search scopes.
 - Keep display search compact for containers instead of serializing full subtrees.
 - Align display search with rendered search output for strings and escaped scalar values.
+- Introduce `JsonPath` and JSON Pointer parsing/formatting, with pointer support for `get`.
 
 ## 0.1.0
 

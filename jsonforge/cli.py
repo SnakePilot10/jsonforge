@@ -31,7 +31,12 @@ def cmd_validate(args) -> int:
 
 def cmd_get(args) -> int:
     doc = JsonDocument.load(args.file)
-    match = get_path(doc.data, args.path, decode_embedded=args.decode_embedded)
+    match = get_path(
+        doc.data,
+        args.path,
+        decode_embedded=args.decode_embedded,
+        path_format=args.path_format,
+    )
     print(format_value(match.value))
     return 0
 
@@ -122,6 +127,7 @@ def build_parser() -> argparse.ArgumentParser:
     get = subparsers.add_parser("get", help="Print value at a dot path")
     get.add_argument("file")
     get.add_argument("path")
+    get.add_argument("--path-format", choices=["dot", "pointer"], default="dot")
     get.add_argument(
         "--decode-embedded",
         action="store_true",

@@ -91,6 +91,30 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("greater than or equal to 0", result.stderr)
 
+    def test_get_supports_json_pointer_path_format(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            path.write_text('{"users": [{"name": "Ada"}], "a/b": 1}', encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "jsonforge",
+                    "get",
+                    str(path),
+                    "/a~1b",
+                    "--path-format",
+                    "pointer",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(result.stdout.strip(), "1")
+
 
 if __name__ == "__main__":
     unittest.main()

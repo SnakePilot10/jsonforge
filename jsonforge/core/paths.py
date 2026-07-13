@@ -12,6 +12,68 @@ class PathMatch:
     decoded_embedded_segments: int = 0
 
 
+@dataclass(frozen=True)
+class JsonPath:
+    parts: tuple[str, ...] = ()
+
+    @classmethod
+    def from_dot(cls, path: str) -> "JsonPath":
+        return cls(tuple(split_path(path)))
+
+    @classmethod
+    def from_pointer(cls, pointer: str) -> "JsonPath":
+        return parse_json_pointer(pointer)
+
+    def to_dot(self) -> str:
+        current = ""
+        for part in self.parts:
+            current = join_path(current, part)
+        return current
+
+    def to_pointer(self) -> str:
+        return to_json_pointer(self)
+
+
+def parse_json_pointer(pointer: str) -> JsonPath:
+    if pointer == "":
+        return JsonPath(())
+    if not pointer.startswith("/"):
+        raise ValueError("JSON Pointer must be empty or start with '/'")
+    return JsonPath(tuple(_unescape_pointer_part(part) for part in pointer.split("/")[1:]))
+
+
+def to_json_pointer(path: JsonPath) -> str:
+    if not path.parts:
+        return ""
+    return "/" + "/".join(_escape_pointer_part(part) for part in path.parts)
+
+
+def _escape_pointer_part(part: str) -> str:
+    return part.replace("~", "~0").replace("/", "~1")
+
+
+def _unescape_pointer_part(part: str) -> str:
+    result: list[str] = []
+    index = 0
+    while index < len(part):
+        char = part[index]
+        if char != "~":
+            result.append(char)
+            index += 1
+            continue
+        if index + 1 >= len(part):
+            raise ValueError("Invalid JSON Pointer escape")
+        escape = part[index + 1]
+        if escape == "0":
+            result.append("~")
+        elif escape == "1":
+            result.append("/")
+        else:
+            raise ValueError("Invalid JSON Pointer escape")
+        index += 2
+    return "".join(result)
+
+
 def split_path(path: str) -> list[str]:
     if not path:
         return []
@@ -72,10 +134,26 @@ def _insert_index(container: list, part: str) -> int:
     return index
 
 
-def get_path(data: Any, path: str, *, decode_embedded: bool = False) -> PathMatch:
+def coerce_path(path: str | JsonPath, *, path_format: str = "dot") -> JsonPath:
+    if isinstance(path, JsonPath):
+        return path
+    if path_format == "dot":
+        return JsonPath.from_dot(path)
+    if path_format == "pointer":
+        return JsonPath.from_pointer(path)
+    raise ValueError(f"Unsupported path format: {path_format}")
+
+
+def get_path(
+    data: Any,
+    path: str | JsonPath,
+    *,
+    decode_embedded: bool = False,
+    path_format: str = "dot",
+) -> PathMatch:
     current = data
     decoded = 0
-    for part in split_path(path):
+    for part in coerce_path(path, path_format=path_format).parts:
         decoded_value = decode_if_embedded_json(current, enabled=decode_embedded)
         if decoded_value.was_embedded_json:
             decoded += 1

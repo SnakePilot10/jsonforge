@@ -2,6 +2,7 @@ import json
 import unittest
 
 from jsonforge.core.paths import (
+    JsonPath,
     add_path,
     delete_path,
     get_path,
@@ -15,6 +16,42 @@ class PathTests(unittest.TestCase):
     def test_get_path_through_objects_and_arrays(self):
         data = {"users": [{"name": "Ada"}]}
         self.assertEqual(get_path(data, "users.0.name").value, "Ada")
+
+    def test_json_path_from_dot(self):
+        self.assertEqual(JsonPath.from_dot("users.0.name"), JsonPath(("users", "0", "name")))
+
+    def test_json_pointer_round_trip(self):
+        path = JsonPath.from_pointer("/users/0/name")
+        self.assertEqual(path, JsonPath(("users", "0", "name")))
+        self.assertEqual(path.to_pointer(), "/users/0/name")
+
+    def test_json_pointer_escapes_slash_and_tilde(self):
+        path = JsonPath.from_pointer("/a~1b/a~0b")
+        self.assertEqual(path, JsonPath(("a/b", "a~b")))
+        self.assertEqual(path.to_pointer(), "/a~1b/a~0b")
+
+    def test_json_pointer_empty_key(self):
+        self.assertEqual(JsonPath.from_pointer("/"), JsonPath(("",)))
+        self.assertEqual(JsonPath(("",)).to_pointer(), "/")
+
+    def test_json_pointer_root(self):
+        self.assertEqual(JsonPath.from_pointer(""), JsonPath(()))
+        self.assertEqual(JsonPath(()).to_pointer(), "")
+
+    def test_get_path_with_json_pointer(self):
+        data = {"users": [{"name": "Ada"}], "a/b": 1, "a~b": 2, "": 3}
+        self.assertEqual(get_path(data, "/users/0/name", path_format="pointer").value, "Ada")
+        self.assertEqual(get_path(data, "/a~1b", path_format="pointer").value, 1)
+        self.assertEqual(get_path(data, "/a~0b", path_format="pointer").value, 2)
+        self.assertEqual(get_path(data, "/", path_format="pointer").value, 3)
+
+    def test_json_pointer_rejects_invalid_escape(self):
+        with self.assertRaises(ValueError):
+            JsonPath.from_pointer("/a~2b")
+
+    def test_json_pointer_rejects_relative_pointer(self):
+        with self.assertRaises(ValueError):
+            JsonPath.from_pointer("users/0")
 
     def test_numeric_object_keys_remain_strings(self):
         data = {"0": "zero", "items": ["first"]}

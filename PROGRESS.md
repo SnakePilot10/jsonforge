@@ -19,6 +19,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - JSON handling is strict: `NaN`, `Infinity`, and `-Infinity` are rejected during load, cast, and save.
 - Duplicate object keys are rejected during load and validation unless compatibility is requested explicitly.
 - Path traversal and search use iterative stacks so callers can consume bounded result sets incrementally.
+- `JsonPath` is the initial structured path representation. JSON Pointer parsing/formatting is implemented for canonical addressing and is currently wired into `get`.
 
 ## Completed
 
@@ -67,6 +68,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Added validation for interactive choices and unsupported search scopes.
 - Made display search use compact placeholders for containers instead of serializing full subtrees.
 - Aligned display search with rendered search output for strings and escaped scalar values.
+- Started Path Engine v3 by adding `JsonPath`, JSON Pointer parsing/formatting, and `get --path-format pointer`.
 
 ## In Progress
 
@@ -74,7 +76,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 
 ## Next Steps
 
-- Implement `JsonPath` plus JSON Pointer as the canonical path representation.
+- Expand `JsonPath` plus JSON Pointer support from `get` to `set`, `add`, `delete`, `search`, and `tree`.
 - Replace flat path completions with contextual completion by children of the current node.
 - Convert deep mutations (`set`, `add`, `delete`) from recursive helpers to iterative operations.
 - Harden safe writes: avoid preserving old mtimes, detect external modifications, and distinguish post-replace durability failures.
@@ -118,3 +120,4 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - `python -m pytest` passed: 65 tests after `limit=0`, display search, CLI validation, type preservation, and stress search coverage.
 - `python -m pytest` passed: 73 tests after strict preserve-mode, embedded-node replacement, scope validation, and compact display-search regressions.
 - `python -m pytest` passed: 78 tests after display-output alignment and additional embedded string-storage regressions.
+- `python -m pytest` passed: 87 tests after introducing `JsonPath`, JSON Pointer parsing/formatting, and pointer `get` coverage.
