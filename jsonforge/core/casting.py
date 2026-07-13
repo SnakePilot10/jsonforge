@@ -2,7 +2,6 @@ from typing import Literal
 
 from .strict_json import loads, validate_json_number
 
-
 ValueType = Literal["auto", "string", "int", "float", "bool", "null", "json"]
 
 

@@ -15,10 +15,10 @@ class JsonDocument:
     data: Any
 
     @classmethod
-    def load(cls, path: str | Path) -> "JsonDocument":
+    def load(cls, path: str | Path, *, allow_duplicate_keys: bool = False) -> "JsonDocument":
         doc_path = Path(path).expanduser()
         with doc_path.open("r", encoding="utf-8") as handle:
-            data = load(handle)
+            data = load(handle, allow_duplicate_keys=allow_duplicate_keys)
         return cls(doc_path, data)
 
     def backup(self) -> Path:

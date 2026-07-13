@@ -1,6 +1,14 @@
 from jsonforge.core.casting import smart_cast
 from jsonforge.core.document import JsonDocument
-from jsonforge.core.paths import add_path, delete_path, format_value, get_path, iter_paths, path_completions, set_path
+from jsonforge.core.paths import (
+    add_path,
+    delete_path,
+    format_value,
+    get_path,
+    iter_paths,
+    path_completions,
+    set_path,
+)
 from jsonforge.core.search import search
 
 from .prompts import ask, ask_with_completions, choose
@@ -53,11 +61,16 @@ def run_interactive(json_file: str) -> None:
         elif choice == "4":
             query = ask("Search: ")
             count = 0
-            for count, (path, value) in enumerate(search(doc.data, query), start=1):
-                preview = format_value(value).replace("\n", " ")
-                if len(preview) > 120:
-                    preview = preview[:117] + "..."
-                print(f"{path}: {preview}")
+            try:
+                for path, value in search(doc.data, query, limit=50):
+                    count += 1
+                    preview = format_value(value).replace("\n", " ")
+                    if len(preview) > 120:
+                        preview = preview[:117] + "..."
+                    print(f"{path}: {preview}")
+            except ValueError as exc:
+                print("Error:", exc)
+                continue
             if count == 0:
                 print("No matches.")
         elif choice == "5":

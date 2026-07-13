@@ -13,12 +13,31 @@ def validate_json_number(value: Any) -> Any:
     return value
 
 
-def loads(text: str) -> Any:
-    return json.loads(text, parse_constant=reject_json_constant)
+def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f'Duplicate key "{key}"')
+        result[key] = value
+    return result
 
 
-def load(handle: TextIO) -> Any:
-    return json.load(handle, parse_constant=reject_json_constant)
+def loads(text: str, *, allow_duplicate_keys: bool = False) -> Any:
+    object_pairs_hook = None if allow_duplicate_keys else reject_duplicate_keys
+    return json.loads(
+        text,
+        parse_constant=reject_json_constant,
+        object_pairs_hook=object_pairs_hook,
+    )
+
+
+def load(handle: TextIO, *, allow_duplicate_keys: bool = False) -> Any:
+    object_pairs_hook = None if allow_duplicate_keys else reject_duplicate_keys
+    return json.load(
+        handle,
+        parse_constant=reject_json_constant,
+        object_pairs_hook=object_pairs_hook,
+    )
 
 
 def dumps(data: Any, **kwargs) -> str:

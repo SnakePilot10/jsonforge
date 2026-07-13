@@ -11,9 +11,9 @@ class DecodedValue:
     was_embedded_json: bool = False
 
 
-def decode_if_embedded_json(value: Any) -> DecodedValue:
+def decode_if_embedded_json(value: Any, *, enabled: bool = False) -> DecodedValue:
     """Decode strings that contain JSON arrays or objects."""
-    if not isinstance(value, str):
+    if not enabled or not isinstance(value, str):
         return DecodedValue(value, False)
 
     stripped = value.strip()

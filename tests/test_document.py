@@ -44,6 +44,23 @@ class DocumentTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 JsonDocument.load(path)
 
+    def test_load_rejects_duplicate_keys(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            path.write_text('{"enabled": true, "enabled": false}', encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, 'Duplicate key "enabled"'):
+                JsonDocument.load(path)
+
+    def test_load_can_allow_duplicate_keys(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            path.write_text('{"enabled": true, "enabled": false}', encoding="utf-8")
+
+            doc = JsonDocument.load(path, allow_duplicate_keys=True)
+
+            self.assertEqual(doc.data, {"enabled": False})
+
     def test_save_rejects_infinity_and_keeps_original(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "sample.json"

@@ -4,8 +4,13 @@ from jsonforge.core.embedded_json import decode_if_embedded_json, encode_if_need
 
 
 class EmbeddedJsonTests(unittest.TestCase):
-    def test_decode_embedded_json_object(self):
+    def test_embedded_json_is_not_decoded_by_default(self):
         decoded = decode_if_embedded_json('{"a":1}')
+        self.assertIs(decoded.was_embedded_json, False)
+        self.assertEqual(decoded.value, '{"a":1}')
+
+    def test_decode_embedded_json_object_when_enabled(self):
+        decoded = decode_if_embedded_json('{"a":1}', enabled=True)
         self.assertIs(decoded.was_embedded_json, True)
         self.assertEqual(decoded.value, {"a": 1})
 

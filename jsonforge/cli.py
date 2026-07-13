@@ -10,21 +10,26 @@ from .tui.app import run_interactive
 
 
 def cmd_validate(args) -> int:
-    JsonDocument.load(args.file)
+    JsonDocument.load(args.file, allow_duplicate_keys=args.allow_duplicate_keys)
     print("valid")
     return 0
 
 
 def cmd_get(args) -> int:
     doc = JsonDocument.load(args.file)
-    match = get_path(doc.data, args.path)
+    match = get_path(doc.data, args.path, decode_embedded=args.decode_embedded)
     print(format_value(match.value))
     return 0
 
 
 def cmd_set(args) -> int:
     doc = JsonDocument.load(args.file)
-    doc.data = set_path(doc.data, args.path, parse_typed_value(args.value, args.type))
+    doc.data = set_path(
+        doc.data,
+        args.path,
+        parse_typed_value(args.value, args.type),
+        decode_embedded=args.decode_embedded,
+    )
     backup_path = doc.save(backup=not args.no_backup)
     if backup_path:
         print(f"backup: {backup_path}")
@@ -34,7 +39,13 @@ def cmd_set(args) -> int:
 
 def cmd_add(args) -> int:
     doc = JsonDocument.load(args.file)
-    doc.data = add_path(doc.data, args.path, parse_typed_value(args.value, args.type), force=args.force)
+    doc.data = add_path(
+        doc.data,
+        args.path,
+        parse_typed_value(args.value, args.type),
+        force=args.force,
+        decode_embedded=args.decode_embedded,
+    )
     backup_path = doc.save(backup=not args.no_backup)
     if backup_path:
         print(f"backup: {backup_path}")
@@ -44,7 +55,7 @@ def cmd_add(args) -> int:
 
 def cmd_delete(args) -> int:
     doc = JsonDocument.load(args.file)
-    doc.data = delete_path(doc.data, args.path)
+    doc.data = delete_path(doc.data, args.path, decode_embedded=args.decode_embedded)
     backup_path = doc.save(backup=not args.no_backup)
     if backup_path:
         print(f"backup: {backup_path}")
@@ -55,7 +66,15 @@ def cmd_delete(args) -> int:
 def cmd_search(args) -> int:
     doc = JsonDocument.load(args.file)
     found = False
-    for path, value in search(doc.data, args.query):
+    for path, value in search(
+        doc.data,
+        args.query,
+        scope=args.scope,
+        exact=args.exact,
+        limit=args.limit,
+        offset=args.offset,
+        decode_embedded=args.decode_embedded,
+    ):
         found = True
         preview = format_value(value).replace("\n", " ")
         if len(preview) > args.preview:
@@ -66,7 +85,8 @@ def cmd_search(args) -> int:
 
 def cmd_tree(args) -> int:
     doc = JsonDocument.load(args.file)
-    for path, value in iter_paths(doc.data, max_depth=args.depth):
+    paths = iter_paths(doc.data, max_depth=args.depth, decode_embedded=args.decode_embedded)
+    for path, value in paths:
         print(f"{path}\t{type(value).__name__}")
     return 0
 
@@ -82,18 +102,33 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate = subparsers.add_parser("validate", help="Validate a JSON file")
     validate.add_argument("file")
+    validate.add_argument("--allow-duplicate-keys", action="store_true")
     validate.set_defaults(func=cmd_validate)
 
     get = subparsers.add_parser("get", help="Print value at a dot path")
     get.add_argument("file")
     get.add_argument("path")
+    get.add_argument(
+        "--decode-embedded",
+        action="store_true",
+        help="Treat string values containing JSON arrays or objects as traversable JSON",
+    )
     get.set_defaults(func=cmd_get)
 
     set_cmd = subparsers.add_parser("set", help="Set value at a dot path")
     set_cmd.add_argument("file")
     set_cmd.add_argument("path")
     set_cmd.add_argument("value")
-    set_cmd.add_argument("--type", choices=["auto", "string", "int", "float", "bool", "null", "json"], default="auto")
+    set_cmd.add_argument(
+        "--type",
+        choices=["auto", "string", "int", "float", "bool", "null", "json"],
+        default="auto",
+    )
+    set_cmd.add_argument(
+        "--decode-embedded",
+        action="store_true",
+        help="Allow edits inside string values containing JSON arrays or objects",
+    )
     set_cmd.add_argument("--no-backup", action="store_true")
     set_cmd.set_defaults(func=cmd_set)
 
@@ -101,26 +136,59 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("file")
     add.add_argument("path")
     add.add_argument("value")
-    add.add_argument("--type", choices=["auto", "string", "int", "float", "bool", "null", "json"], default="auto")
+    add.add_argument(
+        "--type",
+        choices=["auto", "string", "int", "float", "bool", "null", "json"],
+        default="auto",
+    )
     add.add_argument("--force", action="store_true", help="Replace an existing object key")
+    add.add_argument(
+        "--decode-embedded",
+        action="store_true",
+        help="Allow additions inside string values containing JSON arrays or objects",
+    )
     add.add_argument("--no-backup", action="store_true")
     add.set_defaults(func=cmd_add)
 
     delete = subparsers.add_parser("delete", help="Delete object key or array item")
     delete.add_argument("file")
     delete.add_argument("path")
+    delete.add_argument(
+        "--decode-embedded",
+        action="store_true",
+        help="Allow deletes inside string values containing JSON arrays or objects",
+    )
     delete.add_argument("--no-backup", action="store_true")
     delete.set_defaults(func=cmd_delete)
 
-    search_cmd = subparsers.add_parser("search", help="Search paths and values")
+    search_cmd = subparsers.add_parser("search", help="Search JSON keys, paths, and values")
     search_cmd.add_argument("file")
     search_cmd.add_argument("query")
+    search_cmd.add_argument(
+        "--in",
+        dest="scope",
+        choices=["key", "path", "value", "all"],
+        default="all",
+    )
+    search_cmd.add_argument("--exact", action="store_true")
+    search_cmd.add_argument("--limit", type=int, default=50)
+    search_cmd.add_argument("--offset", type=int, default=0)
+    search_cmd.add_argument(
+        "--decode-embedded",
+        action="store_true",
+        help="Search inside string values containing JSON arrays or objects",
+    )
     search_cmd.add_argument("--preview", type=int, default=120)
     search_cmd.set_defaults(func=cmd_search)
 
     tree = subparsers.add_parser("tree", help="List paths in a JSON document")
     tree.add_argument("file")
     tree.add_argument("--depth", type=int, default=2)
+    tree.add_argument(
+        "--decode-embedded",
+        action="store_true",
+        help="List paths inside string values containing JSON arrays or objects",
+    )
     tree.set_defaults(func=cmd_tree)
 
     interactive = subparsers.add_parser("interactive", help="Open interactive prompt")

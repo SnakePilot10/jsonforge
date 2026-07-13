@@ -8,7 +8,14 @@ from pathlib import Path
 class CliTests(unittest.TestCase):
     def test_module_exit_code_for_search_miss(self):
         result = subprocess.run(
-            [sys.executable, "-m", "jsonforge", "search", "tests/fixtures/sample.json", "missing-value"],
+            [
+                sys.executable,
+                "-m",
+                "jsonforge",
+                "search",
+                "tests/fixtures/sample.json",
+                "missing-value",
+            ],
             check=False,
         )
 
