@@ -1,6 +1,6 @@
 import unittest
 
-from jsonforge.core.search import search
+from jsonforge.core.search import format_search_display, search
 
 
 class SearchTests(unittest.TestCase):
@@ -66,6 +66,16 @@ class SearchTests(unittest.TestCase):
         matches = list(search(data, "flags.tower_best_floor: 101", scope="display"))
         self.assertEqual(matches, [("flags.tower_best_floor", 101)])
 
+    def test_search_display_matches_printed_string_line(self):
+        data = {"name": "Ada"}
+        matches = list(search(data, 'name: "Ada"', scope="display"))
+        self.assertEqual(matches, [("name", "Ada")])
+
+    def test_search_display_matches_escaped_string_line(self):
+        data = {"message": "line\nbreak"}
+        matches = list(search(data, 'message: "line\\nbreak"', scope="display"))
+        self.assertEqual(matches, [("message", "line\nbreak")])
+
     def test_search_display_uses_compact_container_placeholders(self):
         data = {"flags": {"tower_best_floor": 101}, "items": [1, 2]}
 
@@ -74,6 +84,11 @@ class SearchTests(unittest.TestCase):
             [("flags", data["flags"])],
         )
         self.assertEqual(list(search(data, "items: [...]", scope="display")), [("items", [1, 2])])
+
+    def test_format_search_display_matches_container_search_placeholders(self):
+        self.assertEqual(format_search_display({"a": 1}), "{...}")
+        self.assertEqual(format_search_display([1, 2]), "[...]")
+        self.assertEqual(format_search_display("Ada"), '"Ada"')
 
     def test_search_rejects_unknown_scope(self):
         with self.assertRaisesRegex(ValueError, "Unsupported search scope"):

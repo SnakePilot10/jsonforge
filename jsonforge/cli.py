@@ -5,7 +5,7 @@ import sys
 from .core.casting import parse_typed_value
 from .core.document import JsonDocument
 from .core.paths import add_path, delete_path, format_value, get_path, iter_paths, set_path
-from .core.search import search
+from .core.search import format_search_display, search
 from .tui.app import run_interactive
 
 
@@ -90,7 +90,7 @@ def cmd_search(args) -> int:
         decode_embedded=args.decode_embedded,
     ):
         found = True
-        preview = format_value(value).replace("\n", " ")
+        preview = format_search_display(value).replace("\n", " ")
         if len(preview) > args.preview:
             preview = preview[: args.preview - 3] + "..."
         print(f"{path}: {preview}")

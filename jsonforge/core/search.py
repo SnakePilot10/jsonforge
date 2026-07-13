@@ -2,7 +2,7 @@ from collections.abc import Iterator
 from typing import Any, Literal
 
 from .embedded_json import decode_if_embedded_json
-from .paths import join_path
+from .paths import format_value, join_path
 
 SearchScope = Literal["key", "path", "value", "display", "all"]
 SEARCH_SCOPES = {"key", "path", "value", "display", "all"}
@@ -18,12 +18,12 @@ def _searchable_scalar(value: Any) -> str:
     return str(value)
 
 
-def _display_value(value: Any) -> str:
+def format_search_display(value: Any) -> str:
     if isinstance(value, dict):
         return "{...}"
     if isinstance(value, list):
         return "[...]"
-    return _searchable_scalar(value)
+    return format_value(value)
 
 
 def search(
@@ -95,6 +95,6 @@ def _matches(
         if _text_matches(_searchable_scalar(value), needle, exact):
             return True
     if scope == "display" and path:
-        display = f"{path}: {_display_value(value)}"
+        display = f"{path}: {format_search_display(value)}"
         return _text_matches(display, needle, exact)
     return False

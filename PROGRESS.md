@@ -66,6 +66,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Fixed direct replacement of string-backed embedded JSON nodes so storage remains a string when `decode_embedded` is enabled.
 - Added validation for interactive choices and unsupported search scopes.
 - Made display search use compact placeholders for containers instead of serializing full subtrees.
+- Aligned display search with rendered search output for strings and escaped scalar values.
 
 ## In Progress
 
@@ -116,3 +117,4 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - `ruff check .` passed after search-boundary and interactive parity fixes.
 - `python -m pytest` passed: 65 tests after `limit=0`, display search, CLI validation, type preservation, and stress search coverage.
 - `python -m pytest` passed: 73 tests after strict preserve-mode, embedded-node replacement, scope validation, and compact display-search regressions.
+- `python -m pytest` passed: 78 tests after display-output alignment and additional embedded string-storage regressions.

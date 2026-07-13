@@ -27,6 +27,7 @@
 - Preserve string-backed embedded JSON storage when replacing an embedded node directly.
 - Validate interactive choices and reject unsupported search scopes.
 - Keep display search compact for containers instead of serializing full subtrees.
+- Align display search with rendered search output for strings and escaped scalar values.
 
 ## 0.1.0
 

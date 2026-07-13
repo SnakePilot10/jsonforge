@@ -51,6 +51,24 @@ class PathTests(unittest.TestCase):
         self.assertIsInstance(data["settings"], str)
         self.assertEqual(json.loads(data["settings"]), {"theme": "light"})
 
+    def test_set_embedded_array_preserves_string_storage(self):
+        data = {"items": "[1,2]"}
+
+        data = set_path(data, "items", [3, 4], decode_embedded=True)
+
+        self.assertIsInstance(data["items"], str)
+        self.assertEqual(json.loads(data["items"]), [3, 4])
+
+    def test_set_nested_embedded_strings_preserves_both_layers(self):
+        data = {"outer": '{"inner":"{\\"a\\":1}"}'}
+
+        data = set_path(data, "outer.inner.a", 2, decode_embedded=True)
+
+        self.assertIsInstance(data["outer"], str)
+        outer = json.loads(data["outer"])
+        self.assertIsInstance(outer["inner"], str)
+        self.assertEqual(json.loads(outer["inner"]), {"a": 2})
+
     def test_root_embedded_json_set_requires_decode_embedded(self):
         data = '{"enabled":false}'
         data = set_path(data, "enabled", True, decode_embedded=True)

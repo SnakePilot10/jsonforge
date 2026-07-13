@@ -9,7 +9,7 @@ from jsonforge.core.paths import (
     path_completions,
     set_path,
 )
-from jsonforge.core.search import search
+from jsonforge.core.search import format_search_display, search
 
 from .prompts import ask, ask_with_completions, choose
 
@@ -105,7 +105,7 @@ def run_interactive(json_file: str) -> None:
                 )
                 for path, value in matches:
                     count += 1
-                    preview = format_value(value).replace("\n", " ")
+                    preview = format_search_display(value).replace("\n", " ")
                     if len(preview) > 120:
                         preview = preview[:117] + "..."
                     print(f"{path}: {preview}")
