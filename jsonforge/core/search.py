@@ -2,9 +2,10 @@ from collections.abc import Iterator
 from typing import Any, Literal
 
 from .embedded_json import decode_if_embedded_json
-from .paths import format_value, join_path
+from .paths import join_path
 
 SearchScope = Literal["key", "path", "value", "display", "all"]
+SEARCH_SCOPES = {"key", "path", "value", "display", "all"}
 
 
 def _searchable_scalar(value: Any) -> str:
@@ -15,6 +16,14 @@ def _searchable_scalar(value: Any) -> str:
     if value is False:
         return "false"
     return str(value)
+
+
+def _display_value(value: Any) -> str:
+    if isinstance(value, dict):
+        return "{...}"
+    if isinstance(value, list):
+        return "[...]"
+    return _searchable_scalar(value)
 
 
 def search(
@@ -34,6 +43,8 @@ def search(
         raise ValueError("Search limit must not be negative")
     if offset < 0:
         raise ValueError("Search offset must not be negative")
+    if scope not in SEARCH_SCOPES:
+        raise ValueError(f"Unsupported search scope: {scope}")
     if limit == 0:
         return
 
@@ -84,6 +95,6 @@ def _matches(
         if _text_matches(_searchable_scalar(value), needle, exact):
             return True
     if scope == "display" and path:
-        display = f"{path}: {format_value(value).replace(chr(10), ' ')}"
+        display = f"{path}: {_display_value(value)}"
         return _text_matches(display, needle, exact)
     return False

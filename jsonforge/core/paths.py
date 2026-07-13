@@ -104,7 +104,9 @@ def set_path(data: Any, path: str, value: Any, *, decode_embedded: bool = False)
         if len(remaining) == 1:
             if isinstance(working, dict) and key not in working:
                 raise KeyError(key)
-            working[key] = value
+            existing = working[key]
+            decoded_existing = decode_if_embedded_json(existing, enabled=decode_embedded)
+            working[key] = encode_if_needed(value, decoded_existing.was_embedded_json)
         else:
             child = working[key]
             working[key] = set_inner(child, remaining[1:])

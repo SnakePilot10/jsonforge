@@ -66,6 +66,19 @@ class SearchTests(unittest.TestCase):
         matches = list(search(data, "flags.tower_best_floor: 101", scope="display"))
         self.assertEqual(matches, [("flags.tower_best_floor", 101)])
 
+    def test_search_display_uses_compact_container_placeholders(self):
+        data = {"flags": {"tower_best_floor": 101}, "items": [1, 2]}
+
+        self.assertEqual(
+            list(search(data, "flags: {...}", scope="display")),
+            [("flags", data["flags"])],
+        )
+        self.assertEqual(list(search(data, "items: [...]", scope="display")), [("items", [1, 2])])
+
+    def test_search_rejects_unknown_scope(self):
+        with self.assertRaisesRegex(ValueError, "Unsupported search scope"):
+            list(search({"a": 1}, "a", scope="banana"))
+
     def test_search_all_does_not_match_descendants_by_ancestor_path(self):
         data = {"flags": {"tower_best_floor": 101}}
         matches = list(search(data, "flags"))

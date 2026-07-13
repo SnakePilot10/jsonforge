@@ -37,6 +37,25 @@ class SmartCastTests(unittest.TestCase):
     def test_parse_preserving_type_keeps_bool_as_bool(self):
         self.assertIs(parse_preserving_type("false", True), False)
 
+    def test_parse_preserving_type_rejects_object_to_scalar(self):
+        with self.assertRaisesRegex(ValueError, "Expected a JSON object"):
+            parse_preserving_type("123", {"a": 1})
+
+    def test_parse_preserving_type_rejects_array_to_object(self):
+        with self.assertRaisesRegex(ValueError, "Expected a JSON array"):
+            parse_preserving_type('{"a": 1}', [1, 2])
+
+    def test_parse_preserving_type_preserves_null_only_for_null_text(self):
+        self.assertIsNone(parse_preserving_type("null", None))
+        with self.assertRaisesRegex(ValueError, "Preserving null"):
+            parse_preserving_type("hello", None)
+
+    def test_parse_preserving_type_allows_object_to_object(self):
+        self.assertEqual(parse_preserving_type('{"b": 2}', {"a": 1}), {"b": 2})
+
+    def test_parse_preserving_type_allows_array_to_array(self):
+        self.assertEqual(parse_preserving_type("[3, 4]", [1, 2]), [3, 4])
+
 
 if __name__ == "__main__":
     unittest.main()

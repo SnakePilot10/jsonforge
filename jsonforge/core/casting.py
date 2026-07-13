@@ -70,4 +70,13 @@ def type_for_existing_value(value) -> ValueType:
 
 
 def parse_preserving_type(value: str, current_value):
-    return parse_typed_value(value, type_for_existing_value(current_value))
+    value_type = type_for_existing_value(current_value)
+    parsed = parse_typed_value(value, value_type)
+
+    if current_value is None and value.strip().lower() != "null":
+        raise ValueError("Preserving null requires the value 'null'")
+    if isinstance(current_value, dict) and not isinstance(parsed, dict):
+        raise ValueError("Expected a JSON object")
+    if isinstance(current_value, list) and not isinstance(parsed, list):
+        raise ValueError("Expected a JSON array")
+    return parsed

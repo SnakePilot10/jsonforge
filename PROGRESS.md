@@ -62,6 +62,10 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Added the large stress JSON fixture under `tests/fixtures/json_stress_test.json`.
 - Added stress fixture tests for strict load, partial traversal, and bounded search.
 - Improved the interactive menu with explicit typed edits, search scope/exact/limit/offset prompts, embedded decode prompts, bounded tree output, and save error handling.
+- Fixed interactive preserve mode so objects remain objects, arrays remain arrays, and null requires `null` input.
+- Fixed direct replacement of string-backed embedded JSON nodes so storage remains a string when `decode_embedded` is enabled.
+- Added validation for interactive choices and unsupported search scopes.
+- Made display search use compact placeholders for containers instead of serializing full subtrees.
 
 ## In Progress
 
@@ -111,3 +115,4 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - `python -m pytest` passed: 57 tests after adding the large stress fixture.
 - `ruff check .` passed after search-boundary and interactive parity fixes.
 - `python -m pytest` passed: 65 tests after `limit=0`, display search, CLI validation, type preservation, and stress search coverage.
+- `python -m pytest` passed: 73 tests after strict preserve-mode, embedded-node replacement, scope validation, and compact display-search regressions.

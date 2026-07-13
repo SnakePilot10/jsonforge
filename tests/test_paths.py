@@ -43,6 +43,14 @@ class PathTests(unittest.TestCase):
         self.assertIsInstance(data["settings"], str)
         self.assertIs(json.loads(data["settings"])["enabled"], True)
 
+    def test_set_embedded_node_preserves_string_storage(self):
+        data = {"settings": '{"theme":"dark"}'}
+
+        data = set_path(data, "settings", {"theme": "light"}, decode_embedded=True)
+
+        self.assertIsInstance(data["settings"], str)
+        self.assertEqual(json.loads(data["settings"]), {"theme": "light"})
+
     def test_root_embedded_json_set_requires_decode_embedded(self):
         data = '{"enabled":false}'
         data = set_path(data, "enabled", True, decode_embedded=True)

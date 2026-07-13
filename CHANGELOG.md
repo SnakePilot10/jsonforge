@@ -23,6 +23,10 @@
 - Reject duplicate object keys during strict JSON load by default.
 - Add the large stress JSON fixture and bounded traversal/search tests.
 - Align the interactive menu with explicit search scopes, limits, offsets, embedded decoding, and typed edits.
+- Preserve object, array, and null types strictly when using interactive preserve mode.
+- Preserve string-backed embedded JSON storage when replacing an embedded node directly.
+- Validate interactive choices and reject unsupported search scopes.
+- Keep display search compact for containers instead of serializing full subtrees.
 
 ## 0.1.0
 
