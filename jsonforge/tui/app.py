@@ -1,5 +1,5 @@
 from jsonforge.core.casting import parse_preserving_type, parse_typed_value
-from jsonforge.core.document import JsonDocument
+from jsonforge.core.document import ConcurrentModificationError, JsonDocument
 from jsonforge.core.paths import (
     add_path,
     delete_path,
@@ -162,12 +162,17 @@ def run_interactive(json_file: str) -> None:
                 print(f"{path} ({type(value).__name__})")
         elif choice == "8":
             try:
-                backup_path = doc.save(backup=True)
-            except (OSError, ValueError) as exc:
+                result = doc.save(backup=True)
+            except (OSError, ValueError, ConcurrentModificationError) as exc:
                 print("Error:", exc)
                 continue
             dirty = False
-            print(f"Saved. Backup: {backup_path}")
+            print(f"Saved. Backup: {result.backup_path}")
+            if not result.durability_confirmed:
+                print(
+                    "Warning: the file was replaced successfully, "
+                    "but directory durability could not be confirmed."
+                )
         elif choice == "9":
             if dirty:
                 confirm = ask("Unsaved changes. Exit anyway? (yes/no): ")

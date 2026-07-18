@@ -3,7 +3,7 @@ import json
 import sys
 
 from .core.casting import parse_typed_value
-from .core.document import JsonDocument
+from .core.document import ConcurrentModificationError, JsonDocument, SaveResult
 from .core.paths import add_path, delete_path, format_value, get_path, iter_paths, set_path
 from .core.search import format_search_display, search
 from .tui.app import run_interactive
@@ -50,11 +50,10 @@ def cmd_set(args) -> int:
         decode_embedded=args.decode_embedded,
         path_format=args.path_format,
     )
-    backup_path = doc.save(backup=not args.no_backup)
-    if backup_path:
-        print(f"backup: {backup_path}")
+    result = doc.save(backup=not args.no_backup, force_write=args.force_write)
+    print_save_result(result)
     print("updated")
-    return 0
+    return save_exit_code(result)
 
 
 def cmd_add(args) -> int:
@@ -67,11 +66,10 @@ def cmd_add(args) -> int:
         decode_embedded=args.decode_embedded,
         path_format=args.path_format,
     )
-    backup_path = doc.save(backup=not args.no_backup)
-    if backup_path:
-        print(f"backup: {backup_path}")
+    result = doc.save(backup=not args.no_backup, force_write=args.force_write)
+    print_save_result(result)
     print("added")
-    return 0
+    return save_exit_code(result)
 
 
 def cmd_delete(args) -> int:
@@ -82,10 +80,26 @@ def cmd_delete(args) -> int:
         decode_embedded=args.decode_embedded,
         path_format=args.path_format,
     )
-    backup_path = doc.save(backup=not args.no_backup)
-    if backup_path:
-        print(f"backup: {backup_path}")
+    result = doc.save(backup=not args.no_backup, force_write=args.force_write)
+    print_save_result(result)
     print("deleted")
+    return save_exit_code(result)
+
+
+def print_save_result(result: SaveResult) -> None:
+    if result.backup_path:
+        print(f"backup: {result.backup_path}")
+    if result.replaced and not result.durability_confirmed:
+        print(
+            "warning: the file was replaced successfully, "
+            "but directory durability could not be confirmed",
+            file=sys.stderr,
+        )
+
+
+def save_exit_code(result: SaveResult) -> int:
+    if result.replaced and not result.durability_confirmed:
+        return 3
     return 0
 
 
@@ -168,6 +182,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Allow edits inside string values containing JSON arrays or objects",
     )
     set_cmd.add_argument("--no-backup", action="store_true")
+    set_cmd.add_argument(
+        "--force-write",
+        action="store_true",
+        help="Overwrite even if the file changed since it was loaded",
+    )
     set_cmd.set_defaults(func=cmd_set)
 
     add = subparsers.add_parser("add", help="Add object key or array item")
@@ -192,6 +211,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Allow additions inside string values containing JSON arrays or objects",
     )
     add.add_argument("--no-backup", action="store_true")
+    add.add_argument(
+        "--force-write",
+        action="store_true",
+        help="Overwrite even if the file changed since it was loaded",
+    )
     add.set_defaults(func=cmd_add)
 
     delete = subparsers.add_parser("delete", help="Delete object key or array item")
@@ -209,6 +233,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Allow deletes inside string values containing JSON arrays or objects",
     )
     delete.add_argument("--no-backup", action="store_true")
+    delete.add_argument(
+        "--force-write",
+        action="store_true",
+        help="Overwrite even if the file changed since it was loaded",
+    )
     delete.set_defaults(func=cmd_delete)
 
     search_cmd = subparsers.add_parser("search", help="Search JSON keys, paths, and values")
@@ -266,7 +295,15 @@ def main(argv: list[str] | None = None) -> int:
     if hasattr(args, "func"):
         try:
             return args.func(args)
-        except (OSError, json.JSONDecodeError, KeyError, IndexError, TypeError, ValueError) as exc:
+        except (
+            OSError,
+            json.JSONDecodeError,
+            KeyError,
+            IndexError,
+            TypeError,
+            ValueError,
+            ConcurrentModificationError,
+        ) as exc:
             print(f"jsonforge: {exc}", file=sys.stderr)
             return 2
 

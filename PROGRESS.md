@@ -14,8 +14,10 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Strings containing JSON arrays or objects stay strings by default. Traversal or mutation inside them is opt-in through `--decode-embedded` or the equivalent interactive prompt.
 - Saving creates timestamped backups by default for destructive write operations.
 - Backup names include collision handling so multiple writes in the same second do not overwrite earlier backups.
+- Backups are reserved with exclusive creation, flushed, fsynced, and never created through a pre-existing path entry.
 - Saves are atomic: data is written to a temporary file, flushed, fsynced, validated, and then swapped into place with `os.replace()`.
-- Atomic saves preserve basic file metadata and reject symlink paths instead of replacing the link.
+- Atomic saves preserve file permissions, do not preserve old mtimes, and reject symlink paths instead of replacing the link.
+- Loaded documents keep a file snapshot; saves reject external modification unless `force_write` / `--force-write` is used explicitly.
 - JSON handling is strict: `NaN`, `Infinity`, and `-Infinity` are rejected during load, cast, and save.
 - Duplicate object keys are rejected during load and validation unless compatibility is requested explicitly.
 - Path traversal and search use iterative stacks so callers can consume bounded result sets incrementally.
@@ -72,6 +74,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Started Path Engine v3 by adding `JsonPath`, JSON Pointer parsing/formatting, and `get --path-format pointer`.
 - Hardened `JsonPath.to_dot()` so the single empty key is not rendered as the document root, and tightened array index parsing.
 - Added JSON Pointer support to `set`, `add`, and `delete` by routing mutations through `JsonPath` coercion.
+- Hardened save operations with stable-load snapshots, external modification detection, exclusive backup creation, structured `SaveResult`, post-replace durability reporting, and `--force-write` for snapshot conflicts only.
 
 ## In Progress
 
@@ -82,7 +85,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Expand canonical JSON Pointer output and `JsonPath` usage to `search` and `tree`.
 - Replace flat path completions with contextual completion by children of the current node.
 - Convert deep mutations (`set`, `add`, `delete`) from recursive helpers to iterative operations.
-- Harden safe writes: avoid preserving old mtimes, detect external modifications, and distinguish post-replace durability failures.
+- Add CLI and documentation polish around recovery workflows for unconfirmed directory durability.
 - Add operation preview/dry-run support before destructive saves.
 - Add richer stress and property tests for paths, mutations, round-trips, and unusual keys.
 
@@ -93,7 +96,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Dot-path display still cannot represent every possible key safely; the single empty key is rejected during `JsonPath.to_dot()` conversion.
 - Flat interactive path completion is bounded and may omit paths that appear after the completion limit in very large documents.
 - Deep mutations are still recursive and can hit Python recursion limits on extremely deep documents.
-- Safe writes still preserve the old file mtime and do not yet detect external modification after load.
+- Safe writes cannot cryptographically prove a file is unchanged if another process restores all tracked snapshot fields before save.
 
 ## Test Notes
 
@@ -130,3 +133,6 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - `ruff check .` passed after adding JSON Pointer mutations.
 - `python -m compileall jsonforge` passed after adding JSON Pointer mutations.
 - `python -m pytest` passed: 103 tests after adding JSON Pointer mutation coverage.
+- `python -m pytest` passed: 112 tests after safe-write snapshot, exclusive backup, and durability-result hardening.
+- `python -m compileall jsonforge tests` passed after safe-write hardening.
+- `ruff check .` was not run locally because this Termux environment attempted to build Ruff from source and the build was cancelled to avoid excessive CPU usage.

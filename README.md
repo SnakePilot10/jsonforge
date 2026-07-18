@@ -18,7 +18,9 @@ JsonForge keeps that value as a string by default. If you explicitly pass `--dec
 
 JsonForge also rejects non-standard JSON constants such as `NaN`, `Infinity`, and `-Infinity` during load, cast, and save operations.
 
-Atomic saves preserve the original file's basic metadata and refuse to replace symlink paths. If you need to edit a symlinked file, pass the target path explicitly.
+Atomic saves preserve file permissions, refuse to replace symlink paths, and do not preserve the old modification time. If you need to edit a symlinked file, pass the target path explicitly.
+
+JsonForge records a snapshot when a document is loaded and refuses to save if the file changed before write. Use `--force-write` only when you intentionally want to overwrite a file that changed since loading; it does not bypass JSON validation, symlink checks, permissions, or safe temporary-file creation.
 
 ## Install For Development
 
@@ -56,6 +58,7 @@ python -m jsonforge set file.json settings.enabled true
 python -m jsonforge set file.json device.id 00123 --type string
 python -m jsonforge set file.json settings.theme light --decode-embedded
 python -m jsonforge set file.json /users/0/name Ada --path-format pointer --type string
+python -m jsonforge set file.json settings.enabled true --force-write
 ```
 
 Add a key or append to an array:
@@ -160,8 +163,10 @@ Strings are strings unless a command explicitly receives `--decode-embedded`. Th
 
 - Universal JSON load/save.
 - Backup before write.
+- Exclusive backup creation before write.
 - Atomic save using temp-file replacement.
-- Basic metadata preservation during atomic save.
+- File permission preservation during atomic save.
+- External modification detection before save, with explicit `--force-write` override for that conflict only.
 - Symlink save rejection to avoid replacing links by accident.
 - Strict JSON constants: `NaN` and `Infinity` are rejected.
 - Duplicate object keys are rejected by default during load and validation.
