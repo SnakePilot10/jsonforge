@@ -118,35 +118,113 @@ class SearchTests(unittest.TestCase):
         
         # Consulta en formato pointer buscando en display con formato de salida dot
         # No debe coincidir porque la cadena display final es "settings.enabled: true"
-        matches1 = list(search(data, "/settings/enabled: true", scope="display", display_path_format="dot"))
+        matches1 = list(
+            search(
+                data,
+                "/settings/enabled: true",
+                scope="display",
+                display_path_format="dot",
+            )
+        )
         self.assertEqual(matches1, [])
 
         # Debe coincidir si especificamos display_path_format="pointer"
-        matches2 = list(search(data, "/settings/enabled: true", scope="display", display_path_format="pointer"))
+        matches2 = list(
+            search(
+                data,
+                "/settings/enabled: true",
+                scope="display",
+                display_path_format="pointer",
+            )
+        )
         self.assertEqual(matches2, [(JsonPath(("settings", "enabled")), True)])
 
         # Consulta en formato dot buscando en display con formato de salida pointer
         # No debe coincidir porque la cadena display es "/settings/enabled: true"
-        matches3 = list(search(data, "settings.enabled: true", scope="display", display_path_format="pointer"))
+        matches3 = list(
+            search(
+                data,
+                "settings.enabled: true",
+                scope="display",
+                display_path_format="pointer",
+            )
+        )
         self.assertEqual(matches3, [])
 
     def test_search_exact_with_path_and_display(self):
         data = {"settings": {"enabled": True}}
-        
+
         # Búsqueda exacta en path
         self.assertEqual(len(list(search(data, "settings.enabled", scope="path", exact=True))), 1)
         self.assertEqual(len(list(search(data, "settings.enable", scope="path", exact=True))), 0)
 
         # Búsqueda exacta en display
-        self.assertEqual(len(list(search(data, "settings.enabled: true", scope="display", exact=True, display_path_format="dot"))), 1)
-        self.assertEqual(len(list(search(data, "settings.enabled: tru", scope="display", exact=True, display_path_format="dot"))), 0)
+        self.assertEqual(
+            len(
+                list(
+                    search(
+                        data,
+                        "settings.enabled: true",
+                        scope="display",
+                        exact=True,
+                        display_path_format="dot",
+                    )
+                )
+            ),
+            1,
+        )
+        self.assertEqual(
+            len(
+                list(
+                    search(
+                        data,
+                        "settings.enabled: tru",
+                        scope="display",
+                        exact=True,
+                        display_path_format="dot",
+                    )
+                )
+            ),
+            0,
+        )
 
     def test_search_pointer_with_special_characters(self):
         data = {"a/b": {"c~d": "needle"}}
-        
+
         # Coincidencia con path usando escapes JSON Pointer canónicos
         matches = list(search(data, "/a~1b/c~0d", scope="path"))
         self.assertEqual(matches, [(JsonPath(("a/b", "c~d")), "needle")])
+
+    def test_search_display_respects_preview_limit(self):
+        data = {"message": "a" * 50 + " needle"}
+
+        # Si buscamos "needle" en display con preview=10, el valor se acorta
+        # a "aaaaaaa..." y "needle" no debe coincidir.
+        matches = list(
+            search(
+                data,
+                "needle",
+                scope="display",
+                display_path_format="dot",
+                preview=10,
+            )
+        )
+        self.assertEqual(matches, [])
+
+        # Sin preview (o con preview suficientemente largo), sí debe coincidir.
+        matches_full = list(
+            search(
+                data,
+                "needle",
+                scope="display",
+                display_path_format="dot",
+            )
+        )
+        self.assertEqual(len(matches_full), 1)
+
+    def test_search_display_path_format_validation(self):
+        with self.assertRaisesRegex(ValueError, "Unsupported display path format"):
+            list(search({"a": 1}, "x", scope="display", display_path_format="banana"))
 
 
 if __name__ == "__main__":

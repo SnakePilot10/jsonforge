@@ -35,7 +35,8 @@ class DocumentTests(unittest.TestCase):
 
             self.assertTrue(backup_path.backup_path.exists())
             self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"a": 2})
-            self.assertEqual(json.loads(backup_path.backup_path.read_text(encoding="utf-8")), {"a": 1})
+            backup_content = backup_path.backup_path.read_text(encoding="utf-8")
+            self.assertEqual(json.loads(backup_content), {"a": 1})
 
     def test_save_result_reports_replacement_and_durability(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -138,7 +139,10 @@ class DocumentTests(unittest.TestCase):
             os.symlink(target, blocked)
             doc = JsonDocument.load(path)
 
-            with mock.patch("jsonforge.core.document.time.strftime", return_value="20260717_120000"):
+            with mock.patch(
+                "jsonforge.core.document.time.strftime",
+                return_value="20260717_120000",
+            ):
                 backup_path = doc.backup(doc.snapshot)
 
             self.assertEqual(backup_path.name, "sample.json.bak_20260717_120000_1")
@@ -181,7 +185,8 @@ class DocumentTests(unittest.TestCase):
             result = doc.save(force_write=True)
 
             self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"value": 3})
-            self.assertEqual(json.loads(result.backup_path.read_text(encoding="utf-8")), {"value": 2})
+            backup_content = result.backup_path.read_text(encoding="utf-8")
+            self.assertEqual(json.loads(backup_content), {"value": 2})
 
     def test_save_updates_snapshot_after_success(self):
         with tempfile.TemporaryDirectory() as tmpdir:

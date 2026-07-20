@@ -3,7 +3,7 @@ from itertools import islice
 from pathlib import Path
 
 from jsonforge.core.document import JsonDocument
-from jsonforge.core.paths import iter_paths, JsonPath
+from jsonforge.core.paths import JsonPath, iter_paths
 from jsonforge.core.search import search
 
 STRESS_FIXTURE = Path(__file__).parent / "fixtures" / "json_stress_test.json"

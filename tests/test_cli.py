@@ -272,7 +272,10 @@ class CliTests(unittest.TestCase):
             )
 
             self.assertEqual(result.returncode, 2)
-            self.assertIn("Path cannot be represented as a dot path; use --path-format pointer", result.stderr)
+            self.assertIn(
+                "Path cannot be represented as a dot path; use --path-format pointer",
+                result.stderr,
+            )
 
     def test_search_fails_on_empty_root_key_with_dot_format(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -296,7 +299,10 @@ class CliTests(unittest.TestCase):
             )
 
             self.assertEqual(result.returncode, 2)
-            self.assertIn("Path cannot be represented as a dot path; use --path-format pointer", result.stderr)
+            self.assertIn(
+                "Path cannot be represented as a dot path; use --path-format pointer",
+                result.stderr,
+            )
 
 
 if __name__ == "__main__":

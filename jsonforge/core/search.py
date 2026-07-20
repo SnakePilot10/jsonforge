@@ -2,10 +2,11 @@ from collections.abc import Iterator
 from typing import Any, Literal
 
 from .embedded_json import decode_if_embedded_json
-from .paths import format_value, JsonPath
+from .paths import JsonPath, format_value, render_path
 
 SearchScope = Literal["key", "path", "value", "display", "all"]
 SEARCH_SCOPES = {"key", "path", "value", "display", "all"}
+PATH_FORMATS = {"dot", "pointer"}
 
 
 def _searchable_scalar(value: Any) -> str:
@@ -26,6 +27,22 @@ def format_search_display(value: Any) -> str:
     return format_value(value)
 
 
+def format_search_line(
+    path: JsonPath,
+    value: Any,
+    *,
+    path_format: Literal["dot", "pointer"],
+    preview: int | None = None,
+) -> str:
+    rendered_path = render_path(path, path_format)
+    rendered_value = format_search_display(value).replace("\n", " ")
+
+    if preview is not None and len(rendered_value) > preview:
+        rendered_value = rendered_value[: preview - 3] + "..."
+
+    return f"{rendered_path}: {rendered_value}"
+
+
 def search(
     data: Any,
     query: str,
@@ -37,6 +54,7 @@ def search(
     offset: int = 0,
     decode_embedded: bool = False,
     display_path_format: Literal["dot", "pointer"] = "dot",
+    preview: int | None = None,
 ) -> Iterator[tuple[JsonPath, Any]]:
     if not query:
         raise ValueError("Search query must not be empty")
@@ -46,6 +64,10 @@ def search(
         raise ValueError("Search offset must not be negative")
     if scope not in SEARCH_SCOPES:
         raise ValueError(f"Unsupported search scope: {scope}")
+    if display_path_format not in PATH_FORMATS:
+        raise ValueError(
+            f"Unsupported display path format: {display_path_format}"
+        )
     if limit == 0:
         return
 
@@ -63,7 +85,16 @@ def search(
         decoded = decode_if_embedded_json(value, enabled=decode_embedded)
         current = decoded.value
 
-        if _matches(current, current_path, key_name, needle, scope, exact, display_path_format):
+        if _matches(
+            current,
+            current_path,
+            key_name,
+            needle,
+            scope,
+            exact,
+            display_path_format,
+            preview,
+        ):
             if skipped < offset:
                 skipped += 1
             else:
@@ -94,6 +125,7 @@ def _matches(
     scope: SearchScope,
     exact: bool,
     display_path_format: Literal["dot", "pointer"] = "dot",
+    preview: int | None = None,
 ) -> bool:
     if scope in {"key", "all"} and key_name is not None and _text_matches(key_name, needle, exact):
         return True
@@ -110,13 +142,14 @@ def _matches(
         if _text_matches(_searchable_scalar(value), needle, exact):
             return True
     if scope == "display" and path.parts:
-        if display_path_format == "pointer":
-            display = f"{path.to_pointer()}: {format_search_display(value)}"
+        try:
+            display = format_search_line(
+                path,
+                value,
+                path_format=display_path_format,
+                preview=preview,
+            )
             return _text_matches(display, needle, exact)
-        else:
-            try:
-                display = f"{path.to_dot()}: {format_search_display(value)}"
-                return _text_matches(display, needle, exact)
-            except ValueError:
-                return False
+        except ValueError:
+            return False
     return False

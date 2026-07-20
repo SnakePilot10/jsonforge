@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Unify display search rendering with `format_search_line()` so `scope="display"` matches exactly the printed line including `--preview` truncation.
+- Validate `display_path_format` at runtime; raise `ValueError` for unknown formats.
+- Move `render_path()` to `core/paths.py`; CLI now raises a descriptive error instead of falling back silently to pointer when `--path-format dot` cannot represent the path.
 - Expand `JsonPath` usage and JSON Pointer support to `search` and `tree` commands.
 - Add `--path-format` flag to `search` and `tree` in the CLI.
 - Match search queries in `scope="path"` and `scope="display"` against both dot-path and JSON Pointer formats.

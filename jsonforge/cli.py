@@ -4,8 +4,16 @@ import sys
 
 from .core.casting import parse_typed_value
 from .core.document import ConcurrentModificationError, JsonDocument, SaveResult
-from .core.paths import add_path, delete_path, format_value, get_path, iter_paths, set_path, JsonPath
-from .core.search import format_search_display, search
+from .core.paths import (
+    add_path,
+    delete_path,
+    format_value,
+    get_path,
+    iter_paths,
+    render_path,
+    set_path,
+)
+from .core.search import format_search_line, search
 from .tui.app import run_interactive
 
 
@@ -21,18 +29,6 @@ def preview_size(value: str) -> int:
     if parsed < 3:
         raise argparse.ArgumentTypeError("must be greater than or equal to 3")
     return parsed
-
-
-def render_path(path: JsonPath, path_format: str) -> str:
-    if path_format == "pointer":
-        return path.to_pointer()
-    try:
-        return path.to_dot()
-    except ValueError as exc:
-        raise ValueError(
-            "Path cannot be represented as a dot path; "
-            "use --path-format pointer"
-        ) from exc
 
 
 def cmd_validate(args) -> int:
@@ -127,14 +123,16 @@ def cmd_search(args) -> int:
         offset=args.offset,
         decode_embedded=args.decode_embedded,
         display_path_format=args.path_format,
+        preview=args.preview,
     ):
         found = True
-        formatted_path = render_path(path, args.path_format)
-
-        preview = format_search_display(value).replace("\n", " ")
-        if len(preview) > args.preview:
-            preview = preview[: args.preview - 3] + "..."
-        print(f"{formatted_path}: {preview}")
+        line = format_search_line(
+            path,
+            value,
+            path_format=args.path_format,
+            preview=args.preview,
+        )
+        print(line)
     return 0 if found else 1
 
 

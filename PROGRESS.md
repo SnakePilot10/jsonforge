@@ -31,9 +31,14 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Refactorizado `iter_paths` y `search` para aceptar y retornar objetos `JsonPath` internamente.
 - Actualizado la TUI interactiva para utilizar `JsonPath.to_dot()` con fallback seguro a pointer, y `path_completions` para filtrar rutas no representables en dot-path.
 - Agregado soporte en la CLI para `--path-format` (`dot` o `pointer`) en los comandos `search` y `tree`.
-- Implementado matching de rutas para `search` (ámbito `path` y `display`) contra ambos formatos (dot-path y JSON Pointer).
+- Implementado matching de rutas en `search` con semántica diferenciada: `scope="path"` compara contra dot-path y JSON Pointer simultáneamente; `scope="display"` evalúa únicamente contra la representación seleccionada por `--path-format`.
+- Centralizado el renderizado de salida con `format_search_line()` compartida entre la lógica de matching y la CLI, asegurando que `--preview` recorte afecte también al matching de `scope="display"`.
+- Movido `render_path()` a `core/paths.py` para evitar duplicación entre CLI y search.
+- Agregada validación en tiempo de ejecución para `display_path_format` (levanta `ValueError` si el valor no es `dot` ni `pointer`).
+- La CLI ahora falla con error descriptivo en lugar de cambiar silenciosamente a Pointer cuando `--path-format dot` no puede representar la ruta.
 - Actualizada toda la suite de pruebas para validar con `JsonPath` en lugar de strings de rutas.
-- Agregadas pruebas CLI específicas para verificar `--path-format` en `search` y `tree`.
+- Agregadas pruebas de regresión para: clave vacía en la raíz, display con preview recortado, validación de display_path_format, y escapes JSON Pointer `~0`/`~1`.
+- Corregido estilo de líneas largas en `document.py` y `test_document.py` para cumplir con el límite de 100 caracteres.
 
 ### 2026-07-12
 
@@ -111,6 +116,8 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 ### 2026-07-20
 
 - `python -m pytest` pasó: 115 tests tras implementar JsonPath y `--path-format` en search y tree.
+- `python -m pytest` pasó: 120 tests tras alinear semántica de display y formato dot-path.
+- `python -m pytest` pasó: 122 tests tras unificar format_search_line, validar display_path_format, y corregir líneas largas.
 
 ### 2026-07-12
 

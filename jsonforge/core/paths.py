@@ -315,6 +315,18 @@ def path_completions(data: Any, *, limit: int = 1000, decode_embedded: bool = Fa
     return completions
 
 
+def render_path(path: JsonPath, path_format: str) -> str:
+    if path_format == "pointer":
+        return path.to_pointer()
+    try:
+        return path.to_dot()
+    except ValueError as exc:
+        raise ValueError(
+            "Path cannot be represented as a dot path; "
+            "use --path-format pointer"
+        ) from exc
+
+
 def format_value(value: Any) -> str:
     if isinstance(value, (dict, list)):
         return json.dumps(value, indent=2, ensure_ascii=False)
