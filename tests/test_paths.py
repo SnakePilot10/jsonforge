@@ -14,6 +14,19 @@ from jsonforge.core.paths import (
 
 
 class PathTests(unittest.TestCase):
+    @staticmethod
+    def nested_object(depth):
+        data = {}
+        current = data
+        parts = []
+        for index in range(depth):
+            part = f"level{index}"
+            child = {}
+            current[part] = child
+            current = child
+            parts.append(part)
+        return data, current, ".".join(parts)
+
     def test_get_path_through_objects_and_arrays(self):
         data = {"users": [{"name": "Ada"}]}
         self.assertEqual(get_path(data, "users.0.name").value, "Ada")
@@ -149,6 +162,14 @@ class PathTests(unittest.TestCase):
         self.assertIsInstance(outer["inner"], str)
         self.assertEqual(json.loads(outer["inner"]), {"a": 2})
 
+    def test_set_path_handles_depth_beyond_python_recursion_limit(self):
+        data, current, parent_path = self.nested_object(1100)
+        current["value"] = 1
+
+        data = set_path(data, f"{parent_path}.value", 2)
+
+        self.assertEqual(get_path(data, f"{parent_path}.value").value, 2)
+
     def test_root_embedded_json_set_requires_decode_embedded(self):
         data = '{"enabled":false}'
         data = set_path(data, "enabled", True, decode_embedded=True)
@@ -182,6 +203,23 @@ class PathTests(unittest.TestCase):
         data = add_path(data, "enabled", True, decode_embedded=True)
         self.assertIsInstance(data, str)
         self.assertIs(json.loads(data)["enabled"], True)
+
+    def test_add_nested_embedded_strings_preserves_both_layers(self):
+        data = {"outer": '{"inner":"{}"}'}
+
+        data = add_path(data, "outer.inner.enabled", True, decode_embedded=True)
+
+        self.assertIsInstance(data["outer"], str)
+        outer = json.loads(data["outer"])
+        self.assertIsInstance(outer["inner"], str)
+        self.assertIs(json.loads(outer["inner"])["enabled"], True)
+
+    def test_add_path_handles_depth_beyond_python_recursion_limit(self):
+        data, _, parent_path = self.nested_object(1100)
+
+        data = add_path(data, f"{parent_path}.value", 1)
+
+        self.assertEqual(get_path(data, f"{parent_path}.value").value, 1)
 
     def test_add_path_appends_to_array(self):
         data = {"items": ["a"]}
@@ -226,6 +264,25 @@ class PathTests(unittest.TestCase):
         data = delete_path(data, "theme", decode_embedded=True)
         self.assertIsInstance(data, str)
         self.assertNotIn("theme", json.loads(data))
+
+    def test_delete_nested_embedded_strings_preserves_both_layers(self):
+        data = {"outer": '{"inner":"{\\"enabled\\":true,\\"theme\\":\\"dark\\"}"}'}
+
+        data = delete_path(data, "outer.inner.theme", decode_embedded=True)
+
+        self.assertIsInstance(data["outer"], str)
+        outer = json.loads(data["outer"])
+        self.assertIsInstance(outer["inner"], str)
+        self.assertEqual(json.loads(outer["inner"]), {"enabled": True})
+
+    def test_delete_path_handles_depth_beyond_python_recursion_limit(self):
+        data, current, parent_path = self.nested_object(1100)
+        current["value"] = 1
+
+        data = delete_path(data, f"{parent_path}.value")
+
+        with self.assertRaises(KeyError):
+            get_path(data, f"{parent_path}.value")
 
     def test_delete_path_rejects_negative_array_index(self):
         data = {"items": ["a", "b"]}

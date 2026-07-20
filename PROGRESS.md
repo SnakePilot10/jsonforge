@@ -24,6 +24,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - `JsonPath` is the initial structured path representation. JSON Pointer parsing/formatting is implemented for canonical addressing and is wired into `get`, `set`, `add`, `delete`, `search`, and `tree`.
 - Array indexes now require strict ASCII JSON Pointer-style spelling: `0` or digits without leading zeroes.
 - Interactive dot-path completion resolves only the current parent and suggests its immediate object keys or array indexes instead of traversing the full document.
+- Deep `set`, `add`, and `delete` traversal uses an explicit parent stack; embedded JSON layers are re-encoded while unwinding that stack.
 
 ## Completed
 
@@ -47,6 +48,9 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Reemplazado el autocompletado plano de rutas por un `PathCompleter` dinámico que sugiere únicamente los hijos del nodo actual.
 - Agregado autocompletado contextual a los flujos interactivos de get, set, add y delete, incluyendo `-` para append en arrays.
 - Integrado el autocompletado con el recorrido opcional de JSON embebido y con claves dot-path escapadas.
+- Convertidas las mutaciones profundas `set`, `add` y `delete` de recursivas a iterativas mediante una pila explícita de padres.
+- Preservada la reconstrucción de strings JSON embebidos, incluyendo múltiples capas anidadas, durante las mutaciones iterativas.
+- Agregadas regresiones a profundidad 1100 para comprobar que las mutaciones ya no dependen del límite de recursión de Python.
 
 ### 2026-07-12
 
@@ -100,11 +104,10 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 
 ## In Progress
 
-- Core semantics and bounded traversal/search are being stabilized for `0.2.0`. Next work should focus on converting deep mutations to iterative operations and polishing recovery workflows.
+- Core semantics and bounded traversal/search are being stabilized for `0.2.0`. Next work should focus on polishing recovery workflows and operation previews.
 
 ## Next Steps
 
-- Convert deep mutations (`set`, `add`, `delete`) from recursive helpers to iterative operations.
 - Add CLI and documentation polish around recovery workflows for unconfirmed directory durability.
 - Add operation preview/dry-run support before destructive saves.
 - Add richer stress and property tests for paths, mutations, round-trips, and unusual keys.
@@ -114,7 +117,6 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Original JSON formatting is not preserved; files are written with two-space indentation.
 - Root replacement for scalar non-container documents is still intentionally unsupported by path helpers.
 - Dot-path display still cannot represent every possible key safely; the single empty key is rejected during `JsonPath.to_dot()` conversion.
-- Deep mutations are still recursive and can hit Python recursion limits on extremely deep documents.
 - Safe writes cannot cryptographically prove a file is unchanged if another process restores all tracked snapshot fields before save.
 
 ## Test Notes
@@ -131,6 +133,8 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - `ruff check .` y `ruff format --check .` pasaron tras implementar el autocompletado contextual.
 - `python -m compileall jsonforge tests` pasó tras integrar `PathCompleter`.
 - `python -m pytest` pasó: 132 tests tras cubrir hijos contextuales, filtros parciales, arrays, append, JSON embebido y claves escapadas.
+- `ruff check .`, `ruff format --check .` y `python -m compileall jsonforge tests` pasaron tras convertir las mutaciones a iterativas.
+- `python -m pytest` pasó: 137 tests, incluyendo `set`, `add` y `delete` a profundidad 1100 y reconstrucción de JSON embebido anidado.
 
 ### 2026-07-12
 

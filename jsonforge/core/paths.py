@@ -171,6 +171,38 @@ def get_path(
     return PathMatch(current, decoded)
 
 
+def _mutation_parent(
+    data: Any,
+    parts: tuple[str, ...],
+    *,
+    decode_embedded: bool,
+) -> tuple[Any, str, bool, list[tuple[Any, Any, bool]]]:
+    current = data
+    parents: list[tuple[Any, Any, bool]] = []
+
+    for part in parts[:-1]:
+        decoded = decode_if_embedded_json(current, enabled=decode_embedded)
+        working = decoded.value
+        key = _key(working, part)
+        parents.append((working, key, decoded.was_embedded_json))
+        current = working[key]
+
+    decoded = decode_if_embedded_json(current, enabled=decode_embedded)
+    return decoded.value, parts[-1], decoded.was_embedded_json, parents
+
+
+def _rebuild_mutation(
+    working: Any,
+    was_embedded_json: bool,
+    parents: list[tuple[Any, Any, bool]],
+) -> Any:
+    updated = encode_if_needed(working, was_embedded_json)
+    for parent, key, parent_was_embedded_json in reversed(parents):
+        parent[key] = updated
+        updated = encode_if_needed(parent, parent_was_embedded_json)
+    return updated
+
+
 def set_path(
     data: Any,
     path: str | JsonPath,
@@ -183,25 +215,18 @@ def set_path(
     if not parts:
         raise ValueError("Cannot replace document root through set_path")
 
-    def set_inner(container: Any, remaining: list[str]) -> Any:
-        decoded = decode_if_embedded_json(container, enabled=decode_embedded)
-        working = decoded.value
-        part = remaining[0]
-        key = _key(working, part)
-
-        if len(remaining) == 1:
-            if isinstance(working, dict) and key not in working:
-                raise KeyError(key)
-            existing = working[key]
-            decoded_existing = decode_if_embedded_json(existing, enabled=decode_embedded)
-            working[key] = encode_if_needed(value, decoded_existing.was_embedded_json)
-        else:
-            child = working[key]
-            working[key] = set_inner(child, remaining[1:])
-
-        return encode_if_needed(working, decoded.was_embedded_json)
-
-    return set_inner(data, parts)
+    working, part, was_embedded_json, parents = _mutation_parent(
+        data,
+        parts,
+        decode_embedded=decode_embedded,
+    )
+    key = _key(working, part)
+    if isinstance(working, dict) and key not in working:
+        raise KeyError(key)
+    existing = working[key]
+    decoded_existing = decode_if_embedded_json(existing, enabled=decode_embedded)
+    working[key] = encode_if_needed(value, decoded_existing.was_embedded_json)
+    return _rebuild_mutation(working, was_embedded_json, parents)
 
 
 def add_path(
@@ -217,27 +242,20 @@ def add_path(
     if not parts:
         raise ValueError("Path is required")
 
-    def add_inner(container: Any, remaining: list[str]) -> Any:
-        decoded = decode_if_embedded_json(container, enabled=decode_embedded)
-        working = decoded.value
-        part = remaining[0]
-
-        if len(remaining) == 1:
-            if isinstance(working, list):
-                working.insert(_insert_index(working, part), value)
-            elif isinstance(working, dict):
-                if part in working and not force:
-                    raise KeyError(f"Path already exists: {part}")
-                working[part] = value
-            else:
-                raise TypeError("Parent is not an object or array")
-        else:
-            key = _key(working, part)
-            working[key] = add_inner(working[key], remaining[1:])
-
-        return encode_if_needed(working, decoded.was_embedded_json)
-
-    return add_inner(data, parts)
+    working, part, was_embedded_json, parents = _mutation_parent(
+        data,
+        parts,
+        decode_embedded=decode_embedded,
+    )
+    if isinstance(working, list):
+        working.insert(_insert_index(working, part), value)
+    elif isinstance(working, dict):
+        if part in working and not force:
+            raise KeyError(f"Path already exists: {part}")
+        working[part] = value
+    else:
+        raise TypeError("Parent is not an object or array")
+    return _rebuild_mutation(working, was_embedded_json, parents)
 
 
 def delete_path(
@@ -251,25 +269,18 @@ def delete_path(
     if not parts:
         raise ValueError("Cannot delete document root")
 
-    def delete_inner(container: Any, remaining: list[str]) -> Any:
-        decoded = decode_if_embedded_json(container, enabled=decode_embedded)
-        working = decoded.value
-        part = remaining[0]
-
-        if len(remaining) == 1:
-            if isinstance(working, list):
-                del working[_array_index(working, part)]
-            elif isinstance(working, dict):
-                del working[part]
-            else:
-                raise TypeError("Parent is not an object or array")
-        else:
-            key = _key(working, part)
-            working[key] = delete_inner(working[key], remaining[1:])
-
-        return encode_if_needed(working, decoded.was_embedded_json)
-
-    return delete_inner(data, parts)
+    working, part, was_embedded_json, parents = _mutation_parent(
+        data,
+        parts,
+        decode_embedded=decode_embedded,
+    )
+    if isinstance(working, list):
+        del working[_array_index(working, part)]
+    elif isinstance(working, dict):
+        del working[part]
+    else:
+        raise TypeError("Parent is not an object or array")
+    return _rebuild_mutation(working, was_embedded_json, parents)
 
 
 def iter_paths(
