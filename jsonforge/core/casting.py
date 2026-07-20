@@ -16,7 +16,7 @@ def smart_cast(value: str):
     if lowered == "null":
         return None
 
-    if text and text[0] in "[{\"":
+    if text and text[0] in '[{"':
         try:
             return loads(text)
         except ValueError:

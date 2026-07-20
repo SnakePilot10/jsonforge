@@ -34,6 +34,9 @@ def format_search_line(
     path_format: Literal["dot", "pointer"],
     preview: int | None = None,
 ) -> str:
+    if preview is not None and preview < 3:
+        raise ValueError("Preview must be greater than or equal to 3")
+
     rendered_path = render_path(path, path_format)
     rendered_value = format_search_display(value).replace("\n", " ")
 
@@ -65,9 +68,9 @@ def search(
     if scope not in SEARCH_SCOPES:
         raise ValueError(f"Unsupported search scope: {scope}")
     if display_path_format not in PATH_FORMATS:
-        raise ValueError(
-            f"Unsupported display path format: {display_path_format}"
-        )
+        raise ValueError(f"Unsupported display path format: {display_path_format}")
+    if preview is not None and preview < 3:
+        raise ValueError("Preview must be greater than or equal to 3")
     if limit == 0:
         return
 

@@ -7,7 +7,7 @@
 - Move `render_path()` to `core/paths.py`; CLI now raises a descriptive error instead of falling back silently to pointer when `--path-format dot` cannot represent the path.
 - Expand `JsonPath` usage and JSON Pointer support to `search` and `tree` commands.
 - Add `--path-format` flag to `search` and `tree` in the CLI.
-- Match search queries in `scope="path"` and `scope="display"` against both dot-path and JSON Pointer formats.
+- Match `scope="path"` against both dot-path and JSON Pointer identifiers, while `scope="display"` follows the selected output format.
 - Refactor `iter_paths` and `search` core functions to use `JsonPath` objects internally.
 - Harden destructive writes with atomic temp-file replacement.
 - Preserve numeric object keys as strings while still supporting numeric array indexes.

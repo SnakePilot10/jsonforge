@@ -125,9 +125,7 @@ class JsonDocument:
             if self.snapshot != current_snapshot and not force_write:
                 raise ConcurrentModificationError("File changed since it was loaded")
         backup_path = (
-            self.backup(current_snapshot)
-            if backup and current_snapshot is not None
-            else None
+            self.backup(current_snapshot) if backup and current_snapshot is not None else None
         )
         self.path.parent.mkdir(parents=True, exist_ok=True)
 

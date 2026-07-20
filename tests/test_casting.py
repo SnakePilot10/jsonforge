@@ -21,7 +21,7 @@ class SmartCastTests(unittest.TestCase):
         self.assertEqual(parse_typed_value("00123", "string"), "00123")
 
     def test_parse_typed_value_json(self):
-        self.assertEqual(parse_typed_value('[1, 2]', "json"), [1, 2])
+        self.assertEqual(parse_typed_value("[1, 2]", "json"), [1, 2])
 
     def test_reject_infinity_from_auto_cast(self):
         with self.assertRaises(ValueError):

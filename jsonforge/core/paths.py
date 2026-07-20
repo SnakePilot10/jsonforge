@@ -2,11 +2,12 @@ import json
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from .embedded_json import decode_if_embedded_json, encode_if_needed
 
 ARRAY_INDEX_PATTERN = re.compile(r"0|[1-9][0-9]*")
+PathFormat = Literal["dot", "pointer"]
 
 
 @dataclass
@@ -315,15 +316,16 @@ def path_completions(data: Any, *, limit: int = 1000, decode_embedded: bool = Fa
     return completions
 
 
-def render_path(path: JsonPath, path_format: str) -> str:
+def render_path(path: JsonPath, path_format: PathFormat) -> str:
     if path_format == "pointer":
         return path.to_pointer()
+    if path_format != "dot":
+        raise ValueError(f"Unsupported path format: {path_format}")
     try:
         return path.to_dot()
     except ValueError as exc:
         raise ValueError(
-            "Path cannot be represented as a dot path; "
-            "use --path-format pointer"
+            "Path cannot be represented as a dot path; use --path-format pointer"
         ) from exc
 
 

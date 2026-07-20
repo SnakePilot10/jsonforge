@@ -8,6 +8,7 @@ from jsonforge.core.paths import (
     get_path,
     iter_paths,
     path_completions,
+    render_path,
     set_path,
 )
 
@@ -43,6 +44,10 @@ class PathTests(unittest.TestCase):
 
     def test_json_path_to_dot_escapes_dot_keys(self):
         self.assertEqual(JsonPath(("a.b", "c\\d")).to_dot(), "a\\.b.c\\\\d")
+
+    def test_render_path_rejects_unknown_format(self):
+        with self.assertRaisesRegex(ValueError, "Unsupported path format: banana"):
+            render_path(JsonPath(("a",)), "banana")
 
     def test_json_pointer_root(self):
         self.assertEqual(JsonPath.from_pointer(""), JsonPath(()))

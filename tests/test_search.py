@@ -1,7 +1,7 @@
 import unittest
 
 from jsonforge.core.paths import JsonPath
-from jsonforge.core.search import format_search_display, search
+from jsonforge.core.search import format_search_display, format_search_line, search
 
 
 class SearchTests(unittest.TestCase):
@@ -115,7 +115,7 @@ class SearchTests(unittest.TestCase):
 
     def test_search_display_scope_is_strict_to_display_path_format(self):
         data = {"settings": {"enabled": True}}
-        
+
         # Consulta en formato pointer buscando en display con formato de salida dot
         # No debe coincidir porque la cadena display final es "settings.enabled: true"
         matches1 = list(
@@ -221,6 +221,19 @@ class SearchTests(unittest.TestCase):
             )
         )
         self.assertEqual(len(matches_full), 1)
+
+    def test_format_search_line_rejects_too_small_preview(self):
+        with self.assertRaisesRegex(ValueError, "greater than or equal to 3"):
+            format_search_line(
+                JsonPath(("message",)),
+                "value",
+                path_format="dot",
+                preview=2,
+            )
+
+    def test_search_rejects_too_small_preview_before_traversal(self):
+        with self.assertRaisesRegex(ValueError, "greater than or equal to 3"):
+            list(search({"message": "value"}, "x", preview=-10, limit=0))
 
     def test_search_display_path_format_validation(self):
         with self.assertRaisesRegex(ValueError, "Unsupported display path format"):
