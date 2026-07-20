@@ -21,7 +21,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - JSON handling is strict: `NaN`, `Infinity`, and `-Infinity` are rejected during load, cast, and save.
 - Duplicate object keys are rejected during load and validation unless compatibility is requested explicitly.
 - Path traversal and search use iterative stacks so callers can consume bounded result sets incrementally.
-- `JsonPath` is the initial structured path representation. JSON Pointer parsing/formatting is implemented for canonical addressing and is currently wired into `get`, `set`, `add`, and `delete`.
+- `JsonPath` is the initial structured path representation. JSON Pointer parsing/formatting is implemented for canonical addressing and is wired into `get`, `set`, `add`, `delete`, `search`, and `tree`.
 - Array indexes now require strict ASCII JSON Pointer-style spelling: `0` or digits without leading zeroes.
 
 ## Completed
@@ -39,6 +39,10 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Actualizada toda la suite de pruebas para validar con `JsonPath` en lugar de strings de rutas.
 - Agregadas pruebas de regresión para: clave vacía en la raíz, display con preview recortado, validación de display_path_format, y escapes JSON Pointer `~0`/`~1`.
 - Corregido estilo de líneas largas en `document.py` y `test_document.py` para cumplir con el límite de 100 caracteres.
+- Endurecido `render_path()` para aceptar únicamente los formatos `dot` y `pointer` y rechazar valores desconocidos.
+- Agregada validación de `preview >= 3` en `search()` y `format_search_line()` antes de recorrer o renderizar resultados.
+- Corregida la descripción de `scope="path"` y `scope="display"` en el changelog.
+- Integrados `ruff check .` y `ruff format --check .` en GitHub Actions para proteger lint y formato.
 
 ### 2026-07-12
 
@@ -118,6 +122,10 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - `python -m pytest` pasó: 115 tests tras implementar JsonPath y `--path-format` en search y tree.
 - `python -m pytest` pasó: 120 tests tras alinear semántica de display y formato dot-path.
 - `python -m pytest` pasó: 122 tests tras unificar format_search_line, validar display_path_format, y corregir líneas largas.
+- `ruff check .` pasó tras endurecer las validaciones de rutas y preview.
+- `ruff format --check .` pasó: 20 archivos correctamente formateados.
+- `python -m compileall jsonforge tests` pasó tras integrar Ruff en CI.
+- `python -m pytest` pasó: 125 tests tras agregar las validaciones de formatos desconocidos y previews demasiado pequeños.
 
 ### 2026-07-12
 
