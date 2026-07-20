@@ -304,13 +304,47 @@ def iter_paths(
                 stack.append((current[index], child_path, depth + 1))
 
 
-def path_completions(data: Any, *, limit: int = 1000, decode_embedded: bool = False) -> list[str]:
+def path_completions(
+    data: Any,
+    path: str = "",
+    *,
+    limit: int = 1000,
+    decode_embedded: bool = False,
+    include_append: bool = False,
+) -> list[str]:
+    if limit < 0:
+        raise ValueError("Completion limit must not be negative")
+    if limit == 0:
+        return []
+
+    parts = split_path(path)
+    parent = JsonPath(tuple(parts[:-1])) if parts else JsonPath(())
+    fragment = parts[-1] if parts else ""
+
+    try:
+        container = get_path(data, parent, decode_embedded=decode_embedded).value
+    except (KeyError, IndexError, TypeError, ValueError):
+        return []
+
+    if isinstance(container, dict):
+        children = (str(key) for key in container)
+    elif isinstance(container, list):
+        indexes = [str(index) for index in range(len(container))]
+        if include_append:
+            indexes.append("-")
+        children = iter(indexes)
+    else:
+        return []
+
     completions: list[str] = []
-    for path, _ in iter_paths(data, decode_embedded=decode_embedded):
+    for child in children:
+        if not child.lower().startswith(fragment.lower()):
+            continue
+        candidate = JsonPath(parent.parts + (child,))
         try:
-            completions.append(path.to_dot())
+            completions.append(candidate.to_dot())
         except ValueError:
-            pass
+            continue
         if len(completions) >= limit:
             break
     return completions

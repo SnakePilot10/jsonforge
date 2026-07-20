@@ -23,6 +23,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Path traversal and search use iterative stacks so callers can consume bounded result sets incrementally.
 - `JsonPath` is the initial structured path representation. JSON Pointer parsing/formatting is implemented for canonical addressing and is wired into `get`, `set`, `add`, `delete`, `search`, and `tree`.
 - Array indexes now require strict ASCII JSON Pointer-style spelling: `0` or digits without leading zeroes.
+- Interactive dot-path completion resolves only the current parent and suggests its immediate object keys or array indexes instead of traversing the full document.
 
 ## Completed
 
@@ -43,6 +44,9 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Agregada validación de `preview >= 3` en `search()` y `format_search_line()` antes de recorrer o renderizar resultados.
 - Corregida la descripción de `scope="path"` y `scope="display"` en el changelog.
 - Integrados `ruff check .` y `ruff format --check .` en GitHub Actions para proteger lint y formato.
+- Reemplazado el autocompletado plano de rutas por un `PathCompleter` dinámico que sugiere únicamente los hijos del nodo actual.
+- Agregado autocompletado contextual a los flujos interactivos de get, set, add y delete, incluyendo `-` para append en arrays.
+- Integrado el autocompletado con el recorrido opcional de JSON embebido y con claves dot-path escapadas.
 
 ### 2026-07-12
 
@@ -96,11 +100,10 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 
 ## In Progress
 
-- Core semantics and bounded traversal/search are being stabilized for `0.2.0`. Next work should focus on canonical paths, safer writes, and replacing flat completions with contextual child completion.
+- Core semantics and bounded traversal/search are being stabilized for `0.2.0`. Next work should focus on converting deep mutations to iterative operations and polishing recovery workflows.
 
 ## Next Steps
 
-- Replace flat path completions with contextual completion by children of the current node.
 - Convert deep mutations (`set`, `add`, `delete`) from recursive helpers to iterative operations.
 - Add CLI and documentation polish around recovery workflows for unconfirmed directory durability.
 - Add operation preview/dry-run support before destructive saves.
@@ -111,7 +114,6 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Original JSON formatting is not preserved; files are written with two-space indentation.
 - Root replacement for scalar non-container documents is still intentionally unsupported by path helpers.
 - Dot-path display still cannot represent every possible key safely; the single empty key is rejected during `JsonPath.to_dot()` conversion.
-- Flat interactive path completion is bounded and may omit paths that appear after the completion limit in very large documents.
 - Deep mutations are still recursive and can hit Python recursion limits on extremely deep documents.
 - Safe writes cannot cryptographically prove a file is unchanged if another process restores all tracked snapshot fields before save.
 
@@ -126,6 +128,9 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - `ruff format --check .` pasó: 20 archivos correctamente formateados.
 - `python -m compileall jsonforge tests` pasó tras integrar Ruff en CI.
 - `python -m pytest` pasó: 125 tests tras agregar las validaciones de formatos desconocidos y previews demasiado pequeños.
+- `ruff check .` y `ruff format --check .` pasaron tras implementar el autocompletado contextual.
+- `python -m compileall jsonforge tests` pasó tras integrar `PathCompleter`.
+- `python -m pytest` pasó: 132 tests tras cubrir hijos contextuales, filtros parciales, arrays, append, JSON embebido y claves escapadas.
 
 ### 2026-07-12
 

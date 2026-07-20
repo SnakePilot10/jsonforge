@@ -245,21 +245,57 @@ class PathTests(unittest.TestCase):
             delete_path(data, "items.01")
         self.assertEqual(data["items"], ["a", "b"])
 
-    def test_iter_paths_and_completions_do_not_include_embedded_paths_by_default(self):
+    def test_iter_paths_does_not_include_embedded_paths_by_default(self):
         data = {"settings": '{"enabled":true}'}
         paths = [path for path, _ in iter_paths(data)]
         self.assertEqual(paths, [JsonPath(("settings",))])
-        self.assertNotIn("settings.enabled", path_completions(data))
 
-    def test_iter_paths_and_completions_include_embedded_paths_when_enabled(self):
+    def test_iter_paths_includes_embedded_paths_when_enabled(self):
         data = {"settings": '{"enabled":true}'}
         paths = [path for path, _ in iter_paths(data, decode_embedded=True)]
         self.assertIn(JsonPath(("settings", "enabled")), paths)
-        self.assertIn("settings.enabled", path_completions(data, decode_embedded=True))
 
-    def test_iter_paths_escapes_dot_keys(self):
-        data = {"a.b": 1}
-        self.assertIn("a\\.b", path_completions(data))
+    def test_path_completions_only_lists_children_of_current_parent(self):
+        data = {"settings": {"enabled": True, "theme": "dark"}, "users": []}
+        self.assertEqual(path_completions(data), ["settings", "users"])
+        self.assertEqual(
+            path_completions(data, "settings."),
+            ["settings.enabled", "settings.theme"],
+        )
+
+    def test_path_completions_filter_partial_child_case_insensitively(self):
+        data = {"settings": {"enabled": True, "environment": "test", "theme": "dark"}}
+        self.assertEqual(
+            path_completions(data, "settings.EN"),
+            ["settings.enabled", "settings.environment"],
+        )
+
+    def test_path_completions_support_arrays_and_append(self):
+        data = {"users": [{"name": "Ada"}, {"name": "Grace"}]}
+        self.assertEqual(path_completions(data, "users."), ["users.0", "users.1"])
+        self.assertEqual(
+            path_completions(data, "users.", include_append=True),
+            ["users.0", "users.1", "users.-"],
+        )
+        self.assertEqual(path_completions(data, "users.0."), ["users.0.name"])
+
+    def test_path_completions_decode_embedded_json_when_enabled(self):
+        data = {"settings": '{"enabled":true}'}
+        self.assertEqual(path_completions(data, "settings."), [])
+        self.assertEqual(
+            path_completions(data, "settings.", decode_embedded=True),
+            ["settings.enabled"],
+        )
+
+    def test_path_completions_escape_dot_keys(self):
+        data = {"a.b": {"c.d": 1}}
+        self.assertEqual(path_completions(data, "a"), ["a\\.b"])
+        self.assertEqual(path_completions(data, "a\\.b."), ["a\\.b.c\\.d"])
+
+    def test_path_completions_return_empty_for_unknown_or_scalar_parent(self):
+        data = {"name": "Ada"}
+        self.assertEqual(path_completions(data, "missing."), [])
+        self.assertEqual(path_completions(data, "name."), [])
 
 
 if __name__ == "__main__":

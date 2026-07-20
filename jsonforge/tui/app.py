@@ -6,12 +6,11 @@ from jsonforge.core.paths import (
     format_value,
     get_path,
     iter_paths,
-    path_completions,
     set_path,
 )
 from jsonforge.core.search import format_search_display, search
 
-from .prompts import ask, ask_with_completions, choose
+from .prompts import ask, ask_with_path_completions, choose
 
 VALUE_TYPES = ["preserve", "auto", "string", "int", "float", "bool", "null", "json"]
 SEARCH_SCOPES = ["key", "value", "path", "display", "all"]
@@ -56,8 +55,8 @@ def run_interactive(json_file: str) -> None:
             for key in keys:
                 print(" -", key)
         elif choice == "2":
-            path = ask_with_completions("Path: ", path_completions(doc.data))
             decode_embedded = ask_yes_no("Decode embedded JSON strings? (yes/no): ")
+            path = ask_with_path_completions("Path: ", doc.data, decode_embedded=decode_embedded)
             try:
                 match = get_path(doc.data, path, decode_embedded=decode_embedded)
                 print(format_value(match.value))
@@ -66,8 +65,8 @@ def run_interactive(json_file: str) -> None:
             except (KeyError, IndexError, TypeError, ValueError) as exc:
                 print("Error:", exc)
         elif choice == "3":
-            path = ask_with_completions("Path: ", path_completions(doc.data))
             decode_embedded = ask_yes_no("Decode embedded JSON strings? (yes/no): ")
+            path = ask_with_path_completions("Path: ", doc.data, decode_embedded=decode_embedded)
             try:
                 current = get_path(doc.data, path, decode_embedded=decode_embedded).value
                 print("Current:", format_value(current))
@@ -119,8 +118,13 @@ def run_interactive(json_file: str) -> None:
             if count == 0:
                 print("No matches.")
         elif choice == "5":
-            path = ask("New path (use '-' to append to arrays): ")
             decode_embedded = ask_yes_no("Decode embedded JSON strings? (yes/no): ")
+            path = ask_with_path_completions(
+                "New path (use '-' to append to arrays): ",
+                doc.data,
+                decode_embedded=decode_embedded,
+                include_append=True,
+            )
             try:
                 value_type = choose(
                     "Type (auto/string/int/float/bool/null/json): ",
@@ -133,8 +137,10 @@ def run_interactive(json_file: str) -> None:
             except (KeyError, IndexError, TypeError, ValueError) as exc:
                 print("Error:", exc)
         elif choice == "6":
-            path = ask_with_completions("Path to delete: ", path_completions(doc.data))
             decode_embedded = ask_yes_no("Decode embedded JSON strings? (yes/no): ")
+            path = ask_with_path_completions(
+                "Path to delete: ", doc.data, decode_embedded=decode_embedded
+            )
             confirm = ask(f"Delete '{path}'? (yes/no): ")
             if not confirm.lower().startswith("y"):
                 print("Delete cancelled.")
