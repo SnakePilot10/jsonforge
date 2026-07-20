@@ -85,6 +85,7 @@ List paths:
 ```bash
 python -m jsonforge tree file.json --depth 3
 python -m jsonforge tree file.json --depth 3 --decode-embedded
+python -m jsonforge tree file.json --depth 3 --path-format pointer
 ```
 
 Search keys, paths, and values:
@@ -95,9 +96,10 @@ python -m jsonforge search file.json enabled --in key --exact
 python -m jsonforge search file.json enabled --in value --limit 50 --offset 100
 python -m jsonforge search file.json 'flags.tower_best_floor: 101' --in display
 python -m jsonforge search file.json enabled --decode-embedded
+python -m jsonforge search file.json enabled --in path --path-format pointer
 ```
 
-The default search scope is `all`, which checks keys and scalar values. Use `--in path` or `--in display` when you specifically want to match full paths or the printed `path: value` line.
+The default search scope is `all`, which checks keys and scalar values. Use `--in path` to match against path identifiers (this checks both the escaped dot-path and the JSON Pointer representation). Use `--in display` to match against the formatted `path: value` string rendered in the output (this strictly evaluates against the output format defined by `--path-format`).
 
 ## Path Syntax
 
@@ -120,7 +122,7 @@ python -m jsonforge get file.json 'a\.b'
 python -m jsonforge get file.json 'a\\b'
 ```
 
-JSON Pointer is available as the canonical path format for `get`, `set`, `add`, and `delete`:
+JSON Pointer is available as the canonical path format for `get`, `set`, `add`, `delete`, `search`, and `tree`:
 
 ```bash
 python -m jsonforge get file.json '/users/0/name' --path-format pointer

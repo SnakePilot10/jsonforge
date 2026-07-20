@@ -273,7 +273,7 @@ def delete_path(
 
 def iter_paths(
     data: Any,
-    path: JsonPath | None = None,
+    path: str | JsonPath | None = None,
     max_depth: int | None = None,
     *,
     decode_embedded: bool = False,

@@ -249,6 +249,55 @@ class CliTests(unittest.TestCase):
             self.assertIn("/settings\tdict", lines)
             self.assertIn("/settings/enabled\tbool", lines)
 
+    def test_tree_fails_on_empty_root_key_with_dot_format(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "empty_root.json"
+            path.write_text('{"": 123}', encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "jsonforge",
+                    "tree",
+                    str(path),
+                    "--path-format",
+                    "dot",
+                    "--depth",
+                    "2",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("Path cannot be represented as a dot path; use --path-format pointer", result.stderr)
+
+    def test_search_fails_on_empty_root_key_with_dot_format(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "empty_root.json"
+            path.write_text('{"": 123}', encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "jsonforge",
+                    "search",
+                    str(path),
+                    "123",
+                    "--path-format",
+                    "dot",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("Path cannot be represented as a dot path; use --path-format pointer", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

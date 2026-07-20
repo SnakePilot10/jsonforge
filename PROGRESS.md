@@ -29,7 +29,7 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 ### 2026-07-20
 
 - Refactorizado `iter_paths` y `search` para aceptar y retornar objetos `JsonPath` internamente.
-- Actualizado `path_completions` y la TUI interactiva para utilizar `JsonPath.to_dot()` con fallback seguro a pointer.
+- Actualizado la TUI interactiva para utilizar `JsonPath.to_dot()` con fallback seguro a pointer, y `path_completions` para filtrar rutas no representables en dot-path.
 - Agregado soporte en la CLI para `--path-format` (`dot` o `pointer`) en los comandos `search` y `tree`.
 - Implementado matching de rutas para `search` (ámbito `path` y `display`) contra ambos formatos (dot-path y JSON Pointer).
 - Actualizada toda la suite de pruebas para validar con `JsonPath` en lugar de strings de rutas.

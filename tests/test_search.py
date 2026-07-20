@@ -113,6 +113,41 @@ class SearchTests(unittest.TestCase):
         matches_ptr = list(search(data, "/settings/theme.color", scope="path"))
         self.assertEqual(matches_ptr, [(JsonPath(("settings", "theme.color")), "blue")])
 
+    def test_search_display_scope_is_strict_to_display_path_format(self):
+        data = {"settings": {"enabled": True}}
+        
+        # Consulta en formato pointer buscando en display con formato de salida dot
+        # No debe coincidir porque la cadena display final es "settings.enabled: true"
+        matches1 = list(search(data, "/settings/enabled: true", scope="display", display_path_format="dot"))
+        self.assertEqual(matches1, [])
+
+        # Debe coincidir si especificamos display_path_format="pointer"
+        matches2 = list(search(data, "/settings/enabled: true", scope="display", display_path_format="pointer"))
+        self.assertEqual(matches2, [(JsonPath(("settings", "enabled")), True)])
+
+        # Consulta en formato dot buscando en display con formato de salida pointer
+        # No debe coincidir porque la cadena display es "/settings/enabled: true"
+        matches3 = list(search(data, "settings.enabled: true", scope="display", display_path_format="pointer"))
+        self.assertEqual(matches3, [])
+
+    def test_search_exact_with_path_and_display(self):
+        data = {"settings": {"enabled": True}}
+        
+        # Búsqueda exacta en path
+        self.assertEqual(len(list(search(data, "settings.enabled", scope="path", exact=True))), 1)
+        self.assertEqual(len(list(search(data, "settings.enable", scope="path", exact=True))), 0)
+
+        # Búsqueda exacta en display
+        self.assertEqual(len(list(search(data, "settings.enabled: true", scope="display", exact=True, display_path_format="dot"))), 1)
+        self.assertEqual(len(list(search(data, "settings.enabled: tru", scope="display", exact=True, display_path_format="dot"))), 0)
+
+    def test_search_pointer_with_special_characters(self):
+        data = {"a/b": {"c~d": "needle"}}
+        
+        # Coincidencia con path usando escapes JSON Pointer canónicos
+        matches = list(search(data, "/a~1b/c~0d", scope="path"))
+        self.assertEqual(matches, [(JsonPath(("a/b", "c~d")), "needle")])
+
 
 if __name__ == "__main__":
     unittest.main()

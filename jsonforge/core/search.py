@@ -29,13 +29,14 @@ def format_search_display(value: Any) -> str:
 def search(
     data: Any,
     query: str,
-    path: JsonPath | None = None,
+    path: str | JsonPath | None = None,
     *,
     scope: SearchScope = "all",
     exact: bool = False,
     limit: int | None = None,
     offset: int = 0,
     decode_embedded: bool = False,
+    display_path_format: Literal["dot", "pointer"] = "dot",
 ) -> Iterator[tuple[JsonPath, Any]]:
     if not query:
         raise ValueError("Search query must not be empty")
@@ -62,7 +63,7 @@ def search(
         decoded = decode_if_embedded_json(value, enabled=decode_embedded)
         current = decoded.value
 
-        if _matches(current, current_path, key_name, needle, scope, exact):
+        if _matches(current, current_path, key_name, needle, scope, exact, display_path_format):
             if skipped < offset:
                 skipped += 1
             else:
@@ -92,6 +93,7 @@ def _matches(
     needle: str,
     scope: SearchScope,
     exact: bool,
+    display_path_format: Literal["dot", "pointer"] = "dot",
 ) -> bool:
     if scope in {"key", "all"} and key_name is not None and _text_matches(key_name, needle, exact):
         return True
@@ -108,13 +110,13 @@ def _matches(
         if _text_matches(_searchable_scalar(value), needle, exact):
             return True
     if scope == "display" and path.parts:
-        try:
-            display_dot = f"{path.to_dot()}: {format_search_display(value)}"
-            if _text_matches(display_dot, needle, exact):
-                return True
-        except ValueError:
-            pass
-        display_ptr = f"{path.to_pointer()}: {format_search_display(value)}"
-        if _text_matches(display_ptr, needle, exact):
-            return True
+        if display_path_format == "pointer":
+            display = f"{path.to_pointer()}: {format_search_display(value)}"
+            return _text_matches(display, needle, exact)
+        else:
+            try:
+                display = f"{path.to_dot()}: {format_search_display(value)}"
+                return _text_matches(display, needle, exact)
+            except ValueError:
+                return False
     return False
