@@ -198,6 +198,57 @@ class CliTests(unittest.TestCase):
             self.assertNotIn("obsolete", contents)
             self.assertIn('"keep": true', contents)
 
+    def test_search_supports_path_format(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            path.write_text('{"settings": {"enabled": true}}', encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "jsonforge",
+                    "search",
+                    str(path),
+                    "true",
+                    "--path-format",
+                    "pointer",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("/settings/enabled: true", result.stdout)
+
+    def test_tree_supports_path_format(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            path.write_text('{"settings": {"enabled": true}}', encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "jsonforge",
+                    "tree",
+                    str(path),
+                    "--path-format",
+                    "pointer",
+                    "--depth",
+                    "2",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            lines = result.stdout.strip().split("\n")
+            self.assertIn("/settings\tdict", lines)
+            self.assertIn("/settings/enabled\tbool", lines)
+
 
 if __name__ == "__main__":
     unittest.main()

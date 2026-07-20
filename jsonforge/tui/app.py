@@ -105,10 +105,14 @@ def run_interactive(json_file: str) -> None:
                 )
                 for path, value in matches:
                     count += 1
+                    try:
+                        formatted_path = path.to_dot()
+                    except ValueError:
+                        formatted_path = path.to_pointer()
                     preview = format_search_display(value).replace("\n", " ")
                     if len(preview) > 120:
                         preview = preview[:117] + "..."
-                    print(f"{path}: {preview}")
+                    print(f"{formatted_path}: {preview}")
             except ValueError as exc:
                 print("Error:", exc)
                 continue
@@ -159,7 +163,11 @@ def run_interactive(json_file: str) -> None:
             for count, (path, value) in enumerate(paths, start=1):
                 if count > limit:
                     break
-                print(f"{path} ({type(value).__name__})")
+                try:
+                    formatted_path = path.to_dot()
+                except ValueError:
+                    formatted_path = path.to_pointer()
+                print(f"{formatted_path} ({type(value).__name__})")
         elif choice == "8":
             try:
                 result = doc.save(backup=True)

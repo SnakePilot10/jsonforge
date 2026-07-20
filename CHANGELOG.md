@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Expand `JsonPath` usage and JSON Pointer support to `search` and `tree` commands.
+- Add `--path-format` flag to `search` and `tree` in the CLI.
+- Match search queries in `scope="path"` and `scope="display"` against both dot-path and JSON Pointer formats.
+- Refactor `iter_paths` and `search` core functions to use `JsonPath` objects internally.
 - Harden destructive writes with atomic temp-file replacement.
 - Preserve numeric object keys as strings while still supporting numeric array indexes.
 - Support escaped dots and backslashes in path segments.

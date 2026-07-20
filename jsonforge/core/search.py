@@ -2,7 +2,7 @@ from collections.abc import Iterator
 from typing import Any, Literal
 
 from .embedded_json import decode_if_embedded_json
-from .paths import format_value, join_path
+from .paths import format_value, JsonPath
 
 SearchScope = Literal["key", "path", "value", "display", "all"]
 SEARCH_SCOPES = {"key", "path", "value", "display", "all"}
@@ -29,14 +29,14 @@ def format_search_display(value: Any) -> str:
 def search(
     data: Any,
     query: str,
-    path: str = "",
+    path: JsonPath | None = None,
     *,
     scope: SearchScope = "all",
     exact: bool = False,
     limit: int | None = None,
     offset: int = 0,
     decode_embedded: bool = False,
-) -> Iterator[tuple[str, Any]]:
+) -> Iterator[tuple[JsonPath, Any]]:
     if not query:
         raise ValueError("Search query must not be empty")
     if limit is not None and limit < 0:
@@ -48,9 +48,14 @@ def search(
     if limit == 0:
         return
 
+    if path is None:
+        path = JsonPath(())
+    elif isinstance(path, str):
+        path = JsonPath.from_dot(path) if path else JsonPath(())
+
     needle = query if exact else query.lower()
     skipped = emitted = 0
-    stack: list[tuple[Any, str, str | None]] = [(data, path, None)]
+    stack: list[tuple[Any, JsonPath, str | None]] = [(data, path, None)]
 
     while stack:
         value, current_path, key_name = stack.pop()
@@ -67,10 +72,11 @@ def search(
                     return
         if isinstance(current, dict):
             for key in reversed(current):
-                stack.append((current[key], join_path(current_path, str(key)), str(key)))
+                child_path = JsonPath(current_path.parts + (str(key),))
+                stack.append((current[key], child_path, str(key)))
         elif isinstance(current, list):
             for index in range(len(current) - 1, -1, -1):
-                child_path = f"{current_path}.{index}" if current_path else str(index)
+                child_path = JsonPath(current_path.parts + (str(index),))
                 stack.append((current[index], child_path, None))
 
 
@@ -81,7 +87,7 @@ def _text_matches(text: str, needle: str, exact: bool) -> bool:
 
 def _matches(
     value: Any,
-    path: str,
+    path: JsonPath,
     key_name: str | None,
     needle: str,
     scope: SearchScope,
@@ -89,12 +95,26 @@ def _matches(
 ) -> bool:
     if scope in {"key", "all"} and key_name is not None and _text_matches(key_name, needle, exact):
         return True
-    if scope == "path" and path and _text_matches(path, needle, exact):
-        return True
+    if scope == "path" and path.parts:
+        try:
+            dot_path = path.to_dot()
+            if _text_matches(dot_path, needle, exact):
+                return True
+        except ValueError:
+            pass
+        if _text_matches(path.to_pointer(), needle, exact):
+            return True
     if scope in {"value", "all"} and not isinstance(value, (dict, list)):
         if _text_matches(_searchable_scalar(value), needle, exact):
             return True
-    if scope == "display" and path:
-        display = f"{path}: {format_search_display(value)}"
-        return _text_matches(display, needle, exact)
+    if scope == "display" and path.parts:
+        try:
+            display_dot = f"{path.to_dot()}: {format_search_display(value)}"
+            if _text_matches(display_dot, needle, exact):
+                return True
+        except ValueError:
+            pass
+        display_ptr = f"{path.to_pointer()}: {format_search_display(value)}"
+        if _text_matches(display_ptr, needle, exact):
+            return True
     return False

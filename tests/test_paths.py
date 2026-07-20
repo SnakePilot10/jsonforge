@@ -243,13 +243,13 @@ class PathTests(unittest.TestCase):
     def test_iter_paths_and_completions_do_not_include_embedded_paths_by_default(self):
         data = {"settings": '{"enabled":true}'}
         paths = [path for path, _ in iter_paths(data)]
-        self.assertEqual(paths, ["settings"])
+        self.assertEqual(paths, [JsonPath(("settings",))])
         self.assertNotIn("settings.enabled", path_completions(data))
 
     def test_iter_paths_and_completions_include_embedded_paths_when_enabled(self):
         data = {"settings": '{"enabled":true}'}
         paths = [path for path, _ in iter_paths(data, decode_embedded=True)]
-        self.assertIn("settings.enabled", paths)
+        self.assertIn(JsonPath(("settings", "enabled")), paths)
         self.assertIn("settings.enabled", path_completions(data, decode_embedded=True))
 
     def test_iter_paths_escapes_dot_keys(self):

@@ -116,10 +116,18 @@ def cmd_search(args) -> int:
         decode_embedded=args.decode_embedded,
     ):
         found = True
+        if args.path_format == "pointer":
+            formatted_path = path.to_pointer()
+        else:
+            try:
+                formatted_path = path.to_dot()
+            except ValueError:
+                formatted_path = path.to_pointer()
+
         preview = format_search_display(value).replace("\n", " ")
         if len(preview) > args.preview:
             preview = preview[: args.preview - 3] + "..."
-        print(f"{path}: {preview}")
+        print(f"{formatted_path}: {preview}")
     return 0 if found else 1
 
 
@@ -127,7 +135,14 @@ def cmd_tree(args) -> int:
     doc = JsonDocument.load(args.file)
     paths = iter_paths(doc.data, max_depth=args.depth, decode_embedded=args.decode_embedded)
     for path, value in paths:
-        print(f"{path}\t{type(value).__name__}")
+        if args.path_format == "pointer":
+            formatted_path = path.to_pointer()
+        else:
+            try:
+                formatted_path = path.to_dot()
+            except ValueError:
+                formatted_path = path.to_pointer()
+        print(f"{formatted_path}\t{type(value).__name__}")
     return 0
 
 
@@ -253,6 +268,12 @@ def build_parser() -> argparse.ArgumentParser:
     search_cmd.add_argument("--limit", type=non_negative_int, default=50)
     search_cmd.add_argument("--offset", type=non_negative_int, default=0)
     search_cmd.add_argument(
+        "--path-format",
+        choices=["dot", "pointer"],
+        default="dot",
+        help="Syntax used for PATH in search results",
+    )
+    search_cmd.add_argument(
         "--decode-embedded",
         action="store_true",
         help="Search inside string values containing JSON arrays or objects",
@@ -263,6 +284,12 @@ def build_parser() -> argparse.ArgumentParser:
     tree = subparsers.add_parser("tree", help="List paths in a JSON document")
     tree.add_argument("file")
     tree.add_argument("--depth", type=non_negative_int, default=2)
+    tree.add_argument(
+        "--path-format",
+        choices=["dot", "pointer"],
+        default="dot",
+        help="Syntax used for PATH in tree output",
+    )
     tree.add_argument(
         "--decode-embedded",
         action="store_true",

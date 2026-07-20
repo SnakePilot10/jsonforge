@@ -26,6 +26,15 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 
 ## Completed
 
+### 2026-07-20
+
+- Refactorizado `iter_paths` y `search` para aceptar y retornar objetos `JsonPath` internamente.
+- Actualizado `path_completions` y la TUI interactiva para utilizar `JsonPath.to_dot()` con fallback seguro a pointer.
+- Agregado soporte en la CLI para `--path-format` (`dot` o `pointer`) en los comandos `search` y `tree`.
+- Implementado matching de rutas para `search` (ámbito `path` y `display`) contra ambos formatos (dot-path y JSON Pointer).
+- Actualizada toda la suite de pruebas para validar con `JsonPath` en lugar de strings de rutas.
+- Agregadas pruebas CLI específicas para verificar `--path-format` en `search` y `tree`.
+
 ### 2026-07-12
 
 - Created repository at `~/Projects/Python/jsonforge/`.
@@ -82,7 +91,6 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 
 ## Next Steps
 
-- Expand canonical JSON Pointer output and `JsonPath` usage to `search` and `tree`.
 - Replace flat path completions with contextual completion by children of the current node.
 - Convert deep mutations (`set`, `add`, `delete`) from recursive helpers to iterative operations.
 - Add CLI and documentation polish around recovery workflows for unconfirmed directory durability.
@@ -99,6 +107,10 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Safe writes cannot cryptographically prove a file is unchanged if another process restores all tracked snapshot fields before save.
 
 ## Test Notes
+
+### 2026-07-20
+
+- `python -m pytest` pasó: 115 tests tras implementar JsonPath y `--path-format` en search y tree.
 
 ### 2026-07-12
 

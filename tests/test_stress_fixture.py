@@ -3,7 +3,7 @@ from itertools import islice
 from pathlib import Path
 
 from jsonforge.core.document import JsonDocument
-from jsonforge.core.paths import iter_paths
+from jsonforge.core.paths import iter_paths, JsonPath
 from jsonforge.core.search import search
 
 STRESS_FIXTURE = Path(__file__).parent / "fixtures" / "json_stress_test.json"
@@ -21,7 +21,7 @@ class StressFixtureTests(unittest.TestCase):
         paths = list(islice(iter_paths(self.doc.data), 1000))
 
         self.assertEqual(len(paths), 1000)
-        self.assertEqual(paths[0][0], "01_primitivos")
+        self.assertEqual(paths[0][0], JsonPath(("01_primitivos",)))
 
     def test_search_respects_limit_on_stress_fixture(self):
         matches = list(search(self.doc.data, "unicode", limit=2))
@@ -29,8 +29,8 @@ class StressFixtureTests(unittest.TestCase):
         self.assertEqual(
             [path for path, _ in matches],
             [
-                "02_strings_extremos.unicode_acentos",
-                "04_claves_raras.ñ_único_ǹó_àscii",
+                JsonPath(("02_strings_extremos", "unicode_acentos")),
+                JsonPath(("04_claves_raras", "ñ_único_ǹó_àscii")),
             ],
         )
 

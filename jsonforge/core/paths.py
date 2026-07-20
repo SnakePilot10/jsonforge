@@ -273,34 +273,43 @@ def delete_path(
 
 def iter_paths(
     data: Any,
-    path: str = "",
+    path: JsonPath | None = None,
     max_depth: int | None = None,
     *,
     decode_embedded: bool = False,
-) -> Iterator[tuple[str, Any]]:
-    stack: list[tuple[Any, str, int]] = [(data, path, 0)]
+) -> Iterator[tuple[JsonPath, Any]]:
+    if path is None:
+        path = JsonPath(())
+    elif isinstance(path, str):
+        path = JsonPath.from_dot(path) if path else JsonPath(())
+
+    stack: list[tuple[Any, JsonPath, int]] = [(data, path, 0)]
 
     while stack:
         value, current_path, depth = stack.pop()
         decoded = decode_if_embedded_json(value, enabled=decode_embedded)
         current = decoded.value
-        if current_path:
+        if current_path.parts:
             yield current_path, current
         if max_depth is not None and depth >= max_depth:
             continue
         if isinstance(current, dict):
             for key in reversed(current):
-                stack.append((current[key], join_path(current_path, str(key)), depth + 1))
+                child_path = JsonPath(current_path.parts + (str(key),))
+                stack.append((current[key], child_path, depth + 1))
         elif isinstance(current, list):
             for index in range(len(current) - 1, -1, -1):
-                child_path = f"{current_path}.{index}" if current_path else str(index)
+                child_path = JsonPath(current_path.parts + (str(index),))
                 stack.append((current[index], child_path, depth + 1))
 
 
 def path_completions(data: Any, *, limit: int = 1000, decode_embedded: bool = False) -> list[str]:
     completions: list[str] = []
     for path, _ in iter_paths(data, decode_embedded=decode_embedded):
-        completions.append(path)
+        try:
+            completions.append(path.to_dot())
+        except ValueError:
+            pass
         if len(completions) >= limit:
             break
     return completions
