@@ -136,6 +136,15 @@ class PathTests(unittest.TestCase):
         self.assertIsInstance(data["settings"], str)
         self.assertIs(json.loads(data["settings"])["enabled"], True)
 
+    def test_get_path_identifies_an_embedded_target_separately_from_its_children(self):
+        data = {"flags": '{"tower_current_floor":101}'}
+
+        flags = get_path(data, "flags", decode_embedded=True)
+        floor = get_path(data, "flags.tower_current_floor", decode_embedded=True)
+
+        self.assertTrue(flags.was_embedded_json)
+        self.assertFalse(floor.was_embedded_json)
+
     def test_set_embedded_node_preserves_string_storage(self):
         data = {"settings": '{"theme":"dark"}'}
 
@@ -314,7 +323,7 @@ class PathTests(unittest.TestCase):
 
     def test_path_completions_only_lists_children_of_current_parent(self):
         data = {"settings": {"enabled": True, "theme": "dark"}, "users": []}
-        self.assertEqual(path_completions(data), ["settings", "users"])
+        self.assertEqual(path_completions(data), ["settings.", "users."])
         self.assertEqual(
             path_completions(data, "settings."),
             ["settings.enabled", "settings.theme"],
@@ -329,16 +338,27 @@ class PathTests(unittest.TestCase):
 
     def test_path_completions_support_arrays_and_append(self):
         data = {"users": [{"name": "Ada"}, {"name": "Grace"}]}
-        self.assertEqual(path_completions(data, "users."), ["users.0", "users.1"])
+        self.assertEqual(path_completions(data, "users."), ["users.0.", "users.1."])
         self.assertEqual(
             path_completions(data, "users.", include_append=True),
-            ["users.0", "users.1", "users.-"],
+            ["users.0.", "users.1.", "users.-"],
         )
         self.assertEqual(path_completions(data, "users.0."), ["users.0.name"])
+
+    def test_path_completions_do_not_materialize_all_array_indexes(self):
+        class HugeList(list):
+            def __len__(self):
+                return 10_000_000
+
+        self.assertEqual(
+            path_completions({"users": HugeList()}, "users.", limit=1),
+            ["users.0"],
+        )
 
     def test_path_completions_decode_embedded_json_when_enabled(self):
         data = {"settings": '{"enabled":true}'}
         self.assertEqual(path_completions(data, "settings."), [])
+        self.assertEqual(path_completions(data, "set", decode_embedded=True), ["settings."])
         self.assertEqual(
             path_completions(data, "settings.", decode_embedded=True),
             ["settings.enabled"],
@@ -346,7 +366,7 @@ class PathTests(unittest.TestCase):
 
     def test_path_completions_escape_dot_keys(self):
         data = {"a.b": {"c.d": 1}}
-        self.assertEqual(path_completions(data, "a"), ["a\\.b"])
+        self.assertEqual(path_completions(data, "a"), ["a\\.b."])
         self.assertEqual(path_completions(data, "a\\.b."), ["a\\.b.c\\.d"])
 
     def test_path_completions_return_empty_for_unknown_or_scalar_parent(self):

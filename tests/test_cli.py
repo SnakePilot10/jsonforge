@@ -3,9 +3,46 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
+
+from jsonforge.cli import main, print_save_result, save_exit_code
+from jsonforge.core.document import ConcurrentModificationError, SaveResult
 
 
 class CliTests(unittest.TestCase):
+    def test_interactive_keyboard_interrupt_returns_130(self):
+        with mock.patch("jsonforge.cli.run_interactive", side_effect=KeyboardInterrupt):
+            self.assertEqual(main(["sample.json"]), 130)
+
+    def test_interactive_eof_returns_success(self):
+        with mock.patch("jsonforge.cli.run_interactive", side_effect=EOFError):
+            self.assertEqual(main(["sample.json"]), 0)
+
+    def test_shorthand_interactive_handles_concurrent_modification(self):
+        with mock.patch(
+            "jsonforge.cli.run_interactive",
+            side_effect=ConcurrentModificationError("File changed while loading"),
+        ):
+            self.assertEqual(main(["sample.json"]), 2)
+
+    def test_unconfirmed_post_save_snapshot_warns_and_returns_partial_success(self):
+        result = SaveResult(
+            backup_path=None,
+            replaced=True,
+            durability_confirmed=True,
+            snapshot_confirmed=False,
+        )
+
+        with mock.patch("builtins.print") as print_mock:
+            print_save_result(result)
+
+        print_mock.assert_called_once_with(
+            "warning: the file was replaced successfully, "
+            "but its post-save snapshot could not be confirmed",
+            file=sys.stderr,
+        )
+        self.assertEqual(save_exit_code(result), 3)
+
     def test_module_exit_code_for_search_miss(self):
         result = subprocess.run(
             [

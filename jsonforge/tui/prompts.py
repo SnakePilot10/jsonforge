@@ -17,6 +17,8 @@ class PathCompleter(Completer):
         self.include_append = include_append
 
     def get_completions(self, document, complete_event):
+        if document.cursor_position != len(document.text):
+            return
         text = document.text_before_cursor
         for candidate in path_completions(
             self.data,

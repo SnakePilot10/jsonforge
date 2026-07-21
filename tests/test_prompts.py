@@ -22,6 +22,21 @@ class PathCompleterTests(unittest.TestCase):
 
         self.assertEqual([completion.text for completion in completions], ["users.-"])
 
+    def test_container_completion_invites_deeper_navigation(self):
+        completer = PathCompleter({"flags": {"tower_current_floor": 101}})
+
+        completions = list(completer.get_completions(Document("fla"), None))
+
+        self.assertEqual([completion.text for completion in completions], ["flags."])
+
+    def test_does_not_complete_when_cursor_is_in_middle_of_path(self):
+        completer = PathCompleter({"users": [{"name": "Ada"}]})
+        document = Document("users.0.name", cursor_position=len("users.0.n"))
+
+        completions = list(completer.get_completions(document, None))
+
+        self.assertEqual(completions, [])
+
 
 if __name__ == "__main__":
     unittest.main()

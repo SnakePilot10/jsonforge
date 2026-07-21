@@ -17,6 +17,8 @@ class FileSnapshot:
     st_mtime_ns: int
     st_ctime_ns: int
     st_mode: int
+    st_uid: int
+    st_gid: int
     content_hash: str | None = None
 
     @classmethod
@@ -32,10 +34,12 @@ class FileSnapshot:
             st_mtime_ns=stat_result.st_mtime_ns,
             st_ctime_ns=stat_result.st_ctime_ns,
             st_mode=stat_result.st_mode,
+            st_uid=stat_result.st_uid,
+            st_gid=stat_result.st_gid,
             content_hash=content_hash,
         )
 
-    def matches(self, stat_result: os.stat_result) -> bool:
+    def matches_stat(self, stat_result: os.stat_result) -> bool:
         current = self.from_stat(stat_result, self.content_hash)
         return self == current
 
@@ -45,6 +49,7 @@ class SaveResult:
     backup_path: Path | None
     replaced: bool
     durability_confirmed: bool
+    snapshot_confirmed: bool
 
 
 class ConcurrentModificationError(RuntimeError):
@@ -93,6 +98,8 @@ class JsonDocument:
         try:
             with backup_path.open("xb") as destination:
                 if snapshot is not None:
+                    if hasattr(os, "fchown"):
+                        os.fchown(destination.fileno(), snapshot.st_uid, snapshot.st_gid)
                     os.fchmod(destination.fileno(), snapshot.st_mode & 0o7777)
                 with self.path.open("rb") as source:
                     before = FileSnapshot.from_stat(os.fstat(source.fileno()))
@@ -141,6 +148,14 @@ class JsonDocument:
                 dump(self.data, handle, indent=2, ensure_ascii=False)
                 handle.write("\n")
                 handle.flush()
+                if current_snapshot is not None:
+                    if hasattr(os, "fchown"):
+                        os.fchown(
+                            handle.fileno(),
+                            current_snapshot.st_uid,
+                            current_snapshot.st_gid,
+                        )
+                    os.fchmod(handle.fileno(), current_snapshot.st_mode & 0o7777)
                 os.fsync(handle.fileno())
 
             with tmp_path.open("r", encoding="utf-8") as handle:
@@ -150,9 +165,6 @@ class JsonDocument:
                 if self._snapshot_path() != current_snapshot:
                     raise ConcurrentModificationError("File changed before replacement")
 
-            if current_snapshot is not None:
-                os.chmod(tmp_path, current_snapshot.st_mode & 0o7777)
-
             os.replace(tmp_path, self.path)
             durability_confirmed = sync_parent_directory(self.path)
         except Exception:
@@ -161,11 +173,20 @@ class JsonDocument:
             except FileNotFoundError:
                 pass
             raise
-        self.snapshot = self._snapshot_path()
+        try:
+            self.snapshot = self._snapshot_path()
+        except (OSError, ConcurrentModificationError):
+            return SaveResult(
+                backup_path=backup_path,
+                replaced=True,
+                durability_confirmed=durability_confirmed,
+                snapshot_confirmed=False,
+            )
         return SaveResult(
             backup_path=backup_path,
             replaced=True,
             durability_confirmed=durability_confirmed,
+            snapshot_confirmed=True,
         )
 
     def root_keys(self) -> list[str]:

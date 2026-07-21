@@ -50,6 +50,7 @@ class DocumentTests(unittest.TestCase):
             self.assertTrue(result.replaced)
             self.assertIsNotNone(result.backup_path)
             self.assertIsInstance(result.durability_confirmed, bool)
+            self.assertTrue(result.snapshot_confirmed)
 
     def test_load_rejects_non_standard_json_constants(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -99,6 +100,35 @@ class DocumentTests(unittest.TestCase):
             doc.save()
 
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o640)
+
+    @unittest.skipUnless(hasattr(os, "fchown"), "file ownership not available")
+    def test_save_preserves_file_owner_and_group(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            path.write_text(json.dumps({"value": 1}), encoding="utf-8")
+            original = path.stat()
+            doc = JsonDocument.load(path)
+            doc.data["value"] = 2
+
+            doc.save()
+
+            saved = path.stat()
+            self.assertEqual(saved.st_uid, original.st_uid)
+            self.assertEqual(saved.st_gid, original.st_gid)
+
+    @unittest.skipUnless(hasattr(os, "fchown"), "file ownership not available")
+    def test_save_aborts_before_replace_if_ownership_cannot_be_preserved(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            path.write_text(json.dumps({"value": 1}), encoding="utf-8")
+            doc = JsonDocument.load(path)
+            doc.data["value"] = 2
+
+            with mock.patch("jsonforge.core.document.os.fchown", side_effect=PermissionError):
+                with self.assertRaises(PermissionError):
+                    doc.save(backup=False)
+
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"value": 1})
 
     def test_save_does_not_preserve_old_mtime(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -199,7 +229,26 @@ class DocumentTests(unittest.TestCase):
             doc.save()
 
             self.assertNotEqual(doc.snapshot, old_snapshot)
-            self.assertTrue(doc.snapshot.matches(path.stat()))
+            self.assertTrue(doc.snapshot.matches_stat(path.stat()))
+
+    def test_save_reports_unconfirmed_snapshot_after_replacement(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            path.write_text(json.dumps({"value": 1}), encoding="utf-8")
+            doc = JsonDocument.load(path)
+            doc.data["value"] = 2
+            original_snapshot = doc.snapshot
+
+            with mock.patch.object(
+                doc,
+                "_snapshot_path",
+                side_effect=[original_snapshot, original_snapshot, FileNotFoundError()],
+            ):
+                result = doc.save(backup=False)
+
+            self.assertTrue(result.replaced)
+            self.assertFalse(result.snapshot_confirmed)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"value": 2})
 
     def test_save_reports_unconfirmed_directory_durability(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -216,8 +265,8 @@ class DocumentTests(unittest.TestCase):
             self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"value": 2})
 
     def test_load_rejects_file_that_changes_while_reading(self):
-        first = FileSnapshot(1, 2, 3, 4, 5, 0o100644)
-        second = FileSnapshot(1, 2, 4, 5, 6, 0o100644)
+        first = FileSnapshot(1, 2, 3, 4, 5, 0o100644, 1000, 1000)
+        second = FileSnapshot(1, 2, 4, 5, 6, 0o100644, 1000, 1000)
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "sample.json"
             path.write_text(json.dumps({"value": 1}), encoding="utf-8")

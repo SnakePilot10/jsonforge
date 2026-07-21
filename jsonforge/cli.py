@@ -103,10 +103,16 @@ def print_save_result(result: SaveResult) -> None:
             "but directory durability could not be confirmed",
             file=sys.stderr,
         )
+    if result.replaced and not result.snapshot_confirmed:
+        print(
+            "warning: the file was replaced successfully, "
+            "but its post-save snapshot could not be confirmed",
+            file=sys.stderr,
+        )
 
 
 def save_exit_code(result: SaveResult) -> int:
-    if result.replaced and not result.durability_confirmed:
+    if result.replaced and (not result.durability_confirmed or not result.snapshot_confirmed):
         return 3
     return 0
 
@@ -311,9 +317,15 @@ def main(argv: list[str] | None = None) -> int:
         try:
             run_interactive(argv[0])
             return 0
-        except (OSError, json.JSONDecodeError, ValueError) as exc:
+        except (OSError, json.JSONDecodeError, ValueError, ConcurrentModificationError) as exc:
             print(f"jsonforge: {exc}", file=sys.stderr)
             return 2
+        except KeyboardInterrupt:
+            print(file=sys.stderr)
+            return 130
+        except EOFError:
+            print()
+            return 0
 
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -332,6 +344,12 @@ def main(argv: list[str] | None = None) -> int:
         ) as exc:
             print(f"jsonforge: {exc}", file=sys.stderr)
             return 2
+        except KeyboardInterrupt:
+            print(file=sys.stderr)
+            return 130
+        except EOFError:
+            print()
+            return 0
 
     parser.print_help()
     return 0

@@ -2,6 +2,7 @@ import json
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
+from itertools import chain
 from typing import Any, Literal
 
 from .embedded_json import decode_if_embedded_json, encode_if_needed
@@ -14,6 +15,7 @@ PathFormat = Literal["dot", "pointer"]
 class PathMatch:
     value: Any
     decoded_embedded_segments: int = 0
+    was_embedded_json: bool = False
 
 
 @dataclass(frozen=True)
@@ -168,7 +170,7 @@ def get_path(
     if decoded_value.was_embedded_json:
         decoded += 1
         current = decoded_value.value
-    return PathMatch(current, decoded)
+    return PathMatch(current, decoded, decoded_value.was_embedded_json)
 
 
 def _mutation_parent(
@@ -340,10 +342,8 @@ def path_completions(
     if isinstance(container, dict):
         children = (str(key) for key in container)
     elif isinstance(container, list):
-        indexes = [str(index) for index in range(len(container))]
-        if include_append:
-            indexes.append("-")
-        children = iter(indexes)
+        indexes = (str(index) for index in range(len(container)))
+        children = chain(indexes, ("-",)) if include_append else indexes
     else:
         return []
 
@@ -353,9 +353,22 @@ def path_completions(
             continue
         candidate = JsonPath(parent.parts + (child,))
         try:
-            completions.append(candidate.to_dot())
+            completion = candidate.to_dot()
         except ValueError:
             continue
+        try:
+            if isinstance(container, dict):
+                child_value = container[child]
+            elif child == "-":
+                child_value = None
+            else:
+                child_value = container[int(child)]
+        except (KeyError, IndexError):
+            child_value = None
+        child_value = decode_if_embedded_json(child_value, enabled=decode_embedded).value
+        if isinstance(child_value, (dict, list)):
+            completion += "."
+        completions.append(completion)
         if len(completions) >= limit:
             break
     return completions

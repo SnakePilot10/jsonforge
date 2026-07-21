@@ -18,7 +18,9 @@ JsonForge keeps that value as a string by default. If you explicitly pass `--dec
 
 JsonForge also rejects non-standard JSON constants such as `NaN`, `Infinity`, and `-Infinity` during load, cast, and save operations.
 
-Atomic saves preserve file permissions, refuse to replace symlink paths, and do not preserve the old modification time. If you need to edit a symlinked file, pass the target path explicitly.
+Atomic saves preserve file permissions and, on platforms that expose ownership metadata, owner and group. They refuse to replace symlink paths and do not preserve the old modification time. If ownership cannot be preserved, the save fails before replacing the original. If you need to edit a symlinked file, pass the target path explicitly.
+
+Access-control lists (ACLs), extended attributes, and SELinux contexts are not currently preserved by atomic replacement.
 
 JsonForge records a snapshot when a document is loaded and refuses to save if the file changed before write. Use `--force-write` only when you intentionally want to overwrite a file that changed since loading; it does not bypass JSON validation, symlink checks, permissions, or safe temporary-file creation.
 
@@ -36,6 +38,16 @@ Open interactive mode:
 python -m jsonforge file.json
 python -m jsonforge interactive file.json
 ```
+
+The interactive workflow is designed around finding and editing values directly:
+
+1. Choose **Search and edit**.
+2. Search by key or value and select a numbered result.
+3. Enter a new value; JsonForge preserves the existing JSON type.
+4. Review the pending change before applying it in memory.
+5. Save with a backup from the main menu.
+
+Objects and arrays open as navigable child lists instead of being printed or replaced. Replacing a whole container is an advanced action that requires typing `REPLACE <path>` exactly.
 
 Validate JSON:
 
@@ -167,22 +179,27 @@ Strings are strings unless a command explicitly receives `--decode-embedded`. Th
 - Backup before write.
 - Exclusive backup creation before write.
 - Atomic save using temp-file replacement.
-- File permission preservation during atomic save.
+- File permission, owner, and group preservation during atomic save where supported.
 - External modification detection before save, with explicit `--force-write` override for that conflict only.
+- Explicit reporting when replacement succeeds but directory durability or the post-save snapshot cannot be confirmed.
 - Symlink save rejection to avoid replacing links by accident.
 - Strict JSON constants: `NaN` and `Infinity` are rejected.
 - Duplicate object keys are rejected by default during load and validation.
 - Smart value casting.
 - Explicit value typing with `--type`.
 - Dot-path `get` and `set`.
-- Initial `JsonPath` representation and JSON Pointer support for `get`, `set`, `add`, and `delete`.
+- Central `JsonPath` representation and JSON Pointer support for `get`, `set`, `add`, `delete`, `search`, and `tree`.
 - Dot-path `add` and `delete`.
 - Escaped dots and backslashes in path segments.
-- Opt-in mutation of JSON embedded in strings, including when the document root itself is an embedded JSON string.
+- Iterative deep-path reads, traversal, and mutations that avoid Python recursion limits.
+- Opt-in mutation of JSON embedded in strings, including iterative reconstruction when the document root itself is an embedded JSON string.
 - Path listing with `tree`.
 - Search across keys and values by default, with explicit path/display scopes, exact matching, limit, and offset options.
+- Display-scope search against the exact rendered path format and truncated preview.
 - Search matching against both escaped paths and raw object key names.
-- Basic interactive menu using `prompt_toolkit`.
+- Interactive menu with contextual deep-path completion.
+- Interactive change previews and explicit `REPLACE` confirmation before replacing containers.
+- Numbered Rich search results that open directly into guided, type-preserving editing.
 
 ## Non-Goals For The MVP
 
