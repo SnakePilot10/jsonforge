@@ -19,8 +19,8 @@ def render_search_results(
     table.add_column("Type", ratio=1)
     table.add_column("Value", ratio=2, overflow="ellipsis")
     for index, path, value_type, preview in rows:
-        table.add_row(str(index), path, value_type, preview)
-    console.print(Panel(table, title=f'Results for "{query}"', border_style="cyan"))
+        table.add_row(Text(str(index)), Text(path), Text(value_type), Text(preview))
+    console.print(Panel(table, title=Text(f'Results for "{query}"'), border_style="cyan"))
 
 
 def render_path_summary(
@@ -45,6 +45,7 @@ def render_container_children(
     rows: Sequence[tuple[int, str, str, str]],
     *,
     omitted: int = 0,
+    caption: str | None = None,
 ) -> None:
     table = Table(box=box.SIMPLE, expand=True, show_header=True)
     table.add_column("#", justify="right", width=3)
@@ -52,8 +53,10 @@ def render_container_children(
     table.add_column("Type", ratio=1)
     table.add_column("Value", ratio=2, overflow="ellipsis")
     for index, child, value_type, preview in rows:
-        table.add_row(str(index), child, value_type, preview)
-    if omitted:
+        table.add_row(Text(str(index)), Text(child), Text(value_type), Text(preview))
+    if caption is not None:
+        table.caption = Text(caption)
+    elif omitted:
         table.caption = f"{omitted} more entries"
     console.print(table)
 

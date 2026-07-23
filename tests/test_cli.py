@@ -5,11 +5,22 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from jsonforge.cli import main, print_save_result, save_exit_code
+from jsonforge.cli import file_size, main, print_save_result, save_exit_code
 from jsonforge.core.document import ConcurrentModificationError, SaveResult
 
 
 class CliTests(unittest.TestCase):
+    def test_file_size_accepts_units_and_unlimited(self):
+        self.assertEqual(file_size("2K"), 2 * 1024)
+        self.assertEqual(file_size("3MiB"), 3 * 1024 * 1024)
+        self.assertIsNone(file_size("unlimited"))
+
+    def test_file_size_rejects_negative_or_unknown_values(self):
+        with self.assertRaisesRegex(ValueError, "file size"):
+            file_size("-1")
+        with self.assertRaisesRegex(ValueError, "file size"):
+            file_size("10TB")
+
     def test_interactive_keyboard_interrupt_returns_130(self):
         with mock.patch("jsonforge.cli.run_interactive", side_effect=KeyboardInterrupt):
             self.assertEqual(main(["sample.json"]), 130)
@@ -108,6 +119,25 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 2)
         self.assertIn("greater than or equal to 3", result.stderr)
+
+    def test_validate_rejects_file_above_cli_size_limit(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "jsonforge",
+                "validate",
+                "tests/fixtures/sample.json",
+                "--max-file-size",
+                "5",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("exceeds the 5-byte limit", result.stderr)
 
     def test_tree_rejects_negative_depth(self):
         result = subprocess.run(

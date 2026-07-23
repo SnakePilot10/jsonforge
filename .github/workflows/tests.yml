@@ -4,21 +4,57 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: "3.13"
+      - run: python -m pip install -e '.[dev]'
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: python -m compileall jsonforge tests
+
   test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
         with:
           python-version: ${{ matrix.python-version }}
-      - run: python -m pip install --upgrade pip
       - run: python -m pip install -e '.[dev]'
-      - run: ruff check .
-      - run: ruff format --check .
-      - run: python -m compileall jsonforge tests
       - run: python -m pytest
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: "3.13"
+      - run: python -m pip install '.[release]'
+      - run: python -m build
+      - run: python -m twine check dist/*
+      - run: python -m venv /tmp/jsonforge-wheel-test
+      - run: /tmp/jsonforge-wheel-test/bin/python -m pip install dist/*.whl
+      - run: /tmp/jsonforge-wheel-test/bin/jsonforge --help
+      - run: /tmp/jsonforge-wheel-test/bin/jsonforge validate tests/fixtures/sample.json
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: "3.13"
+      - run: python -m pip install -e '.[security]'
+      - run: python -m pip_audit . --strict

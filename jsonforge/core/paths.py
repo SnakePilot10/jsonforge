@@ -252,9 +252,13 @@ def add_path(
     if isinstance(working, list):
         working.insert(_insert_index(working, part), value)
     elif isinstance(working, dict):
-        if part in working and not force:
-            raise KeyError(f"Path already exists: {part}")
-        working[part] = value
+        if part in working:
+            if not force:
+                raise KeyError(f"Path already exists: {part}")
+            existing = decode_if_embedded_json(working[part], enabled=decode_embedded)
+            working[part] = encode_if_needed(value, existing.was_embedded_json)
+        else:
+            working[part] = value
     else:
         raise TypeError("Parent is not an object or array")
     return _rebuild_mutation(working, was_embedded_json, parents)

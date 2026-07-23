@@ -1,8 +1,8 @@
 # JsonForge
 
-JsonForge is a universal terminal JSON editor focused on safe edits and deep paths.
+JsonForge is a terminal JSON editor for POSIX systems, focused on safe edits and deep paths.
 
-The project starts with a small `prompt_toolkit` interface and a CLI that can validate, read, set, add, delete, search, and list paths in any JSON file.
+The project starts with a small `prompt_toolkit` interface and a CLI that can validate, read, set, add, delete, search, and list paths in any JSON file. Linux and Android/Termux are the primary supported environments; Windows support is intentionally out of scope.
 
 ## Why It Exists
 
@@ -18,11 +18,11 @@ JsonForge keeps that value as a string by default. If you explicitly pass `--dec
 
 JsonForge also rejects non-standard JSON constants such as `NaN`, `Infinity`, and `-Infinity` during load, cast, and save operations.
 
-Atomic saves preserve file permissions and, on platforms that expose ownership metadata, owner and group. They refuse to replace symlink paths and do not preserve the old modification time. If ownership cannot be preserved, the save fails before replacing the original. If you need to edit a symlinked file, pass the target path explicitly.
+Atomic saves preserve file permissions and, on platforms that expose ownership metadata, owner and group. Ownership is changed only when the temporary file does not already match, which avoids unnecessary `fchown()` calls on Android shared storage. Saves refuse to replace symlink paths and do not preserve the old modification time. If ownership cannot be preserved, the save fails before replacing the original. If you need to edit a symlinked file, pass the target path explicitly.
 
 Access-control lists (ACLs), extended attributes, and SELinux contexts are not currently preserved by atomic replacement.
 
-JsonForge records a snapshot when a document is loaded and refuses to save if the file changed before write. Use `--force-write` only when you intentionally want to overwrite a file that changed since loading; it does not bypass JSON validation, symlink checks, permissions, or safe temporary-file creation.
+JsonForge records a snapshot when a document is loaded and refuses to save if the file changed or was deleted before write. A manually constructed document also refuses to overwrite an existing destination without an explicit forced write. Loads retry brief metadata instability up to three times for Android/FUSE-style filesystems. Use `--force-write` only when you intentionally want to overwrite a conflicting destination; it does not bypass JSON validation, symlink checks, permissions, or safe temporary-file creation.
 
 ## Install For Development
 
@@ -31,6 +31,15 @@ python -m pip install -e .
 ```
 
 ## Usage
+
+CLI commands limit input and output files to 256 MiB by default. Override the limit with a byte count or a `K`, `KiB`, `M`, `MiB`, `G`, or `GiB` suffix, or disable it explicitly:
+
+```bash
+python -m jsonforge validate file.json --max-file-size 64MiB
+python -m jsonforge interactive file.json --max-file-size unlimited
+```
+
+The core `JsonDocument.load()` API remains unlimited unless `max_bytes` is provided. JsonForge loads the complete document in memory and is not a streaming editor. Excessive parser or serializer nesting is reported as a normal validation error instead of exposing a recursion traceback.
 
 Open interactive mode:
 
@@ -43,11 +52,11 @@ The interactive workflow is designed around finding and editing values directly:
 
 1. Choose **Search and edit**.
 2. Search by key or value and select a numbered result.
-3. Enter a new value; JsonForge preserves the existing JSON type.
+3. Enter a new value; JsonForge preserves the existing JSON type by default and offers an explicit type-change action.
 4. Review the pending change before applying it in memory.
 5. Save with a backup from the main menu.
 
-Objects and arrays open as navigable child lists instead of being printed or replaced. Replacing a whole container is an advanced action that requires typing `REPLACE <path>` exactly.
+Objects and arrays open as paginated, filterable child lists instead of being printed or replaced. Replacing a whole container is an advanced action that requires typing `REPLACE <path>` exactly; deleting one requires `DELETE <path>`.
 
 Validate JSON:
 
@@ -181,6 +190,7 @@ Strings are strings unless a command explicitly receives `--decode-embedded`. Th
 - Atomic save using temp-file replacement.
 - File permission, owner, and group preservation during atomic save where supported.
 - External modification detection before save, with explicit `--force-write` override for that conflict only.
+- A configurable 256 MiB CLI input/output limit, with an explicit unlimited mode.
 - Explicit reporting when replacement succeeds but directory durability or the post-save snapshot cannot be confirmed.
 - Symlink save rejection to avoid replacing links by accident.
 - Strict JSON constants: `NaN` and `Infinity` are rejected.
@@ -199,6 +209,9 @@ Strings are strings unless a command explicitly receives `--decode-embedded`. Th
 - Search matching against both escaped paths and raw object key names.
 - Interactive menu with contextual deep-path completion.
 - Interactive change previews and explicit `REPLACE` confirmation before replacing containers.
+- Paginated and filterable interactive container navigation with explicit `DELETE` confirmation.
+- No-op save and edit detection, plus safe session termination after an unconfirmed post-save snapshot.
+- Strict JSON-aware no-op detection that distinguishes booleans, integers, and floats.
 - Numbered Rich search results that open directly into guided, type-preserving editing.
 
 ## Non-Goals For The MVP

@@ -1,5 +1,6 @@
 import hashlib
 import os
+import stat
 import tempfile
 import time
 from dataclasses import dataclass
@@ -45,6 +46,23 @@ class FileSnapshot:
 
 
 @dataclass(frozen=True)
+class ReadStabilitySignature:
+    st_dev: int
+    st_ino: int
+    st_size: int
+    st_mtime_ns: int
+
+    @classmethod
+    def from_stat(cls, stat_result: os.stat_result) -> "ReadStabilitySignature":
+        return cls(
+            st_dev=stat_result.st_dev,
+            st_ino=stat_result.st_ino,
+            st_size=stat_result.st_size,
+            st_mtime_ns=stat_result.st_mtime_ns,
+        )
+
+
+@dataclass(frozen=True)
 class SaveResult:
     backup_path: Path | None
     replaced: bool
@@ -61,23 +79,32 @@ class JsonDocument:
     path: Path
     data: Any
     snapshot: FileSnapshot | None = None
+    max_bytes: int | None = None
 
     @classmethod
-    def load(cls, path: str | Path, *, allow_duplicate_keys: bool = False) -> "JsonDocument":
+    def load(
+        cls,
+        path: str | Path,
+        *,
+        allow_duplicate_keys: bool = False,
+        max_bytes: int | None = None,
+    ) -> "JsonDocument":
         doc_path = Path(path).expanduser()
-        with doc_path.open("rb") as handle:
-            before = FileSnapshot.from_stat(os.fstat(handle.fileno()))
-            raw_data = handle.read()
-            after = FileSnapshot.from_stat(os.fstat(handle.fileno()))
-        if before != after:
-            raise ConcurrentModificationError("File changed while it was being loaded")
+        raw_data, stable_stat = read_stable_bytes(
+            doc_path,
+            error_message="File remained unstable across multiple load attempts",
+            max_bytes=max_bytes,
+        )
         text = raw_data.decode("utf-8")
-        data = loads(text, allow_duplicate_keys=allow_duplicate_keys)
+        try:
+            data = loads(text, allow_duplicate_keys=allow_duplicate_keys)
+        except RecursionError as exc:
+            raise ValueError("JSON nesting exceeds the parser depth limit") from exc
         snapshot = FileSnapshot.from_stat(
-            doc_path.stat(),
+            stable_stat,
             hashlib.sha256(raw_data).hexdigest(),
         )
-        return cls(doc_path, data, snapshot)
+        return cls(doc_path, data, snapshot, max_bytes)
 
     def backup(self, snapshot: FileSnapshot | None = None) -> Path:
         timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -98,8 +125,7 @@ class JsonDocument:
         try:
             with backup_path.open("xb") as destination:
                 if snapshot is not None:
-                    if hasattr(os, "fchown"):
-                        os.fchown(destination.fileno(), snapshot.st_uid, snapshot.st_gid)
+                    preserve_file_ownership(destination.fileno(), snapshot)
                     os.fchmod(destination.fileno(), snapshot.st_mode & 0o7777)
                 with self.path.open("rb") as source:
                     before = FileSnapshot.from_stat(os.fstat(source.fileno()))
@@ -124,13 +150,17 @@ class JsonDocument:
         return backup_path
 
     def save(self, backup: bool = True, *, force_write: bool = False) -> SaveResult:
-        if self.path.is_symlink():
-            raise ValueError("Refusing to replace symlink; edit the target path directly")
+        ensure_not_symlink(self.path)
 
-        current_snapshot = self._snapshot_path() if self.path.exists() else None
-        if current_snapshot is not None and self.snapshot is not None:
-            if self.snapshot != current_snapshot and not force_write:
-                raise ConcurrentModificationError("File changed since it was loaded")
+        current_snapshot = self._snapshot_path_or_none()
+        if not force_write and self.snapshot != current_snapshot:
+            if self.snapshot is not None and current_snapshot is None:
+                message = "File was deleted since it was loaded"
+            elif self.snapshot is None:
+                message = "File already exists and was not loaded by this document"
+            else:
+                message = "File changed since it was loaded"
+            raise ConcurrentModificationError(message)
         backup_path = (
             self.backup(current_snapshot) if backup and current_snapshot is not None else None
         )
@@ -145,26 +175,30 @@ class JsonDocument:
         tmp_path = Path(tmp_name)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                dump(self.data, handle, indent=2, ensure_ascii=False)
+                try:
+                    dump(self.data, handle, indent=2, ensure_ascii=False)
+                except RecursionError as exc:
+                    raise ValueError("JSON nesting exceeds the serializer depth limit") from exc
                 handle.write("\n")
                 handle.flush()
+                if (
+                    self.max_bytes is not None
+                    and os.fstat(handle.fileno()).st_size > self.max_bytes
+                ):
+                    raise ValueError(f"JSON output exceeds the {self.max_bytes}-byte limit")
                 if current_snapshot is not None:
-                    if hasattr(os, "fchown"):
-                        os.fchown(
-                            handle.fileno(),
-                            current_snapshot.st_uid,
-                            current_snapshot.st_gid,
-                        )
+                    preserve_file_ownership(handle.fileno(), current_snapshot)
                     os.fchmod(handle.fileno(), current_snapshot.st_mode & 0o7777)
                 os.fsync(handle.fileno())
 
             with tmp_path.open("r", encoding="utf-8") as handle:
                 load(handle)
 
-            if current_snapshot is not None and not force_write:
-                if self._snapshot_path() != current_snapshot:
+            if not force_write:
+                if self._snapshot_path_or_none() != current_snapshot:
                     raise ConcurrentModificationError("File changed before replacement")
 
+            ensure_not_symlink(self.path)
             os.replace(tmp_path, self.path)
             durability_confirmed = sync_parent_directory(self.path)
         except Exception:
@@ -197,15 +231,62 @@ class JsonDocument:
         return []
 
     def _snapshot_path(self) -> FileSnapshot:
-        with self.path.open("rb") as handle:
-            before = FileSnapshot.from_stat(os.fstat(handle.fileno()))
-            file_hash = hashlib.sha256()
-            while chunk := handle.read(1024 * 1024):
-                file_hash.update(chunk)
-            after = FileSnapshot.from_stat(os.fstat(handle.fileno()))
-        if before != after:
-            raise ConcurrentModificationError("File changed while it was being inspected")
-        return FileSnapshot.from_stat(self.path.stat(), file_hash.hexdigest())
+        raw_data, stable_stat = read_stable_bytes(
+            self.path,
+            error_message="File remained unstable while it was being inspected",
+            max_bytes=self.max_bytes,
+        )
+        return FileSnapshot.from_stat(stable_stat, hashlib.sha256(raw_data).hexdigest())
+
+    def _snapshot_path_or_none(self) -> FileSnapshot | None:
+        try:
+            return self._snapshot_path()
+        except FileNotFoundError:
+            return None
+
+
+def read_stable_bytes(
+    path: Path,
+    *,
+    error_message: str,
+    attempts: int = 3,
+    max_bytes: int | None = None,
+) -> tuple[bytes, os.stat_result]:
+    if max_bytes is not None and max_bytes < 0:
+        raise ValueError("Maximum file size must not be negative")
+    for attempt in range(attempts):
+        with path.open("rb") as handle:
+            before = os.fstat(handle.fileno())
+            raw_data = handle.read() if max_bytes is None else handle.read(max_bytes + 1)
+            after = os.fstat(handle.fileno())
+        if max_bytes is not None and len(raw_data) > max_bytes:
+            raise ValueError(f"JSON file exceeds the {max_bytes}-byte limit")
+        if ReadStabilitySignature.from_stat(before) == ReadStabilitySignature.from_stat(after):
+            return raw_data, after
+        if attempt + 1 < attempts:
+            time.sleep(0.01 * (2**attempt))
+    raise ConcurrentModificationError(error_message)
+
+
+def ensure_not_symlink(path: Path) -> None:
+    try:
+        mode = path.lstat().st_mode
+    except FileNotFoundError:
+        return
+    if stat.S_ISLNK(mode):
+        raise ValueError("Refusing to replace symlink; edit the target path directly")
+
+
+def preserve_file_ownership(fd: int, snapshot: FileSnapshot) -> None:
+    current = os.fstat(fd)
+    if current.st_uid == snapshot.st_uid and current.st_gid == snapshot.st_gid:
+        return
+    if not hasattr(os, "fchown"):
+        raise OSError("Cannot preserve file ownership on this platform")
+    os.fchown(fd, snapshot.st_uid, snapshot.st_gid)
+    updated = os.fstat(fd)
+    if updated.st_uid != snapshot.st_uid or updated.st_gid != snapshot.st_gid:
+        raise OSError("File ownership could not be preserved")
 
 
 def sync_parent_directory(path: Path) -> bool:

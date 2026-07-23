@@ -7,7 +7,12 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from jsonforge.core.document import ConcurrentModificationError, FileSnapshot, JsonDocument
+from jsonforge.core.document import (
+    ConcurrentModificationError,
+    JsonDocument,
+    ReadStabilitySignature,
+    preserve_file_ownership,
+)
 
 
 class DocumentTests(unittest.TestCase):
@@ -60,6 +65,15 @@ class DocumentTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 JsonDocument.load(path)
 
+    def test_load_reports_excessive_parser_nesting_as_value_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "deep.json"
+            path.write_text("[]", encoding="utf-8")
+
+            with mock.patch("jsonforge.core.document.loads", side_effect=RecursionError):
+                with self.assertRaisesRegex(ValueError, "parser depth limit"):
+                    JsonDocument.load(path)
+
     def test_load_rejects_duplicate_keys(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "sample.json"
@@ -89,6 +103,52 @@ class DocumentTests(unittest.TestCase):
 
             self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"value": 1})
 
+    def test_load_rejects_file_above_configured_size_limit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            path.write_text('{"value": 1}', encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "exceeds the 5-byte limit"):
+                JsonDocument.load(path, max_bytes=5)
+
+    def test_load_accepts_file_exactly_at_configured_size_limit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            contents = '{"value": 1}'
+            path.write_text(contents, encoding="utf-8")
+
+            doc = JsonDocument.load(path, max_bytes=len(contents.encode("utf-8")))
+
+            self.assertEqual(doc.data, {"value": 1})
+
+    def test_save_rejects_output_above_loaded_size_limit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            original = '{"value":1}'
+            path.write_text(original, encoding="utf-8")
+            doc = JsonDocument.load(path, max_bytes=40)
+            doc.data["value"] = "x" * 100
+
+            with self.assertRaisesRegex(ValueError, "exceeds the 40-byte limit"):
+                doc.save(backup=False)
+
+            self.assertEqual(path.read_text(encoding="utf-8"), original)
+
+    def test_save_reports_excessive_serializer_nesting_as_value_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "deep.json"
+            data = current = []
+            for _ in range(2000):
+                child = []
+                current.append(child)
+                current = child
+            doc = JsonDocument(path, data)
+
+            with self.assertRaisesRegex(ValueError, "serializer depth limit"):
+                doc.save(backup=False)
+
+            self.assertFalse(path.exists())
+
     def test_save_preserves_file_mode(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "sample.json"
@@ -117,18 +177,32 @@ class DocumentTests(unittest.TestCase):
             self.assertEqual(saved.st_gid, original.st_gid)
 
     @unittest.skipUnless(hasattr(os, "fchown"), "file ownership not available")
-    def test_save_aborts_before_replace_if_ownership_cannot_be_preserved(self):
+    def test_save_skips_fchown_when_ownership_already_matches(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "sample.json"
             path.write_text(json.dumps({"value": 1}), encoding="utf-8")
             doc = JsonDocument.load(path)
             doc.data["value"] = 2
 
-            with mock.patch("jsonforge.core.document.os.fchown", side_effect=PermissionError):
-                with self.assertRaises(PermissionError):
-                    doc.save(backup=False)
+            with mock.patch("jsonforge.core.document.os.fchown") as fchown_mock:
+                doc.save(backup=False)
 
-            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"value": 1})
+            fchown_mock.assert_not_called()
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"value": 2})
+
+    @unittest.skipUnless(hasattr(os, "fchown"), "file ownership not available")
+    def test_ownership_change_is_verified(self):
+        snapshot = mock.Mock(st_uid=1000, st_gid=1000)
+        before = mock.Mock(st_uid=2000, st_gid=2000)
+        after = mock.Mock(st_uid=1000, st_gid=1000)
+
+        with (
+            mock.patch("jsonforge.core.document.os.fstat", side_effect=[before, after]),
+            mock.patch("jsonforge.core.document.os.fchown") as fchown_mock,
+        ):
+            preserve_file_ownership(7, snapshot)
+
+        fchown_mock.assert_called_once_with(7, 1000, 1000)
 
     def test_save_does_not_preserve_old_mtime(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -158,6 +232,23 @@ class DocumentTests(unittest.TestCase):
 
             self.assertTrue(link.is_symlink())
             self.assertEqual(json.loads(target.read_text(encoding="utf-8")), {"value": 1})
+
+    def test_save_rechecks_symlink_immediately_before_replacement(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            path.write_text(json.dumps({"value": 1}), encoding="utf-8")
+            doc = JsonDocument.load(path)
+            doc.data["value"] = 2
+
+            with mock.patch(
+                "jsonforge.core.document.ensure_not_symlink",
+                side_effect=[None, ValueError("Refusing to replace symlink")],
+            ):
+                with self.assertRaisesRegex(ValueError, "Refusing to replace symlink"):
+                    doc.save(backup=False)
+
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"value": 1})
+            self.assertEqual(list(Path(tmpdir).glob(".*.tmp")), [])
 
     @unittest.skipUnless(hasattr(os, "symlink"), "symlink not available")
     def test_backup_uses_exclusive_creation_and_skips_broken_symlink(self):
@@ -203,6 +294,30 @@ class DocumentTests(unittest.TestCase):
                 doc.save()
 
             self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"value": 2})
+
+    def test_save_rejects_file_deleted_since_load(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            path.write_text(json.dumps({"value": 1}), encoding="utf-8")
+            doc = JsonDocument.load(path)
+            doc.data["value"] = 2
+            path.unlink()
+
+            with self.assertRaisesRegex(ConcurrentModificationError, "deleted"):
+                doc.save()
+
+            self.assertFalse(path.exists())
+
+    def test_save_rejects_existing_target_without_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            path.write_text(json.dumps({"value": 1}), encoding="utf-8")
+            doc = JsonDocument(path, {"value": 2})
+
+            with self.assertRaisesRegex(ConcurrentModificationError, "already exists"):
+                doc.save()
+
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"value": 1})
 
     def test_force_write_only_ignores_snapshot_conflict(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -265,18 +380,40 @@ class DocumentTests(unittest.TestCase):
             self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {"value": 2})
 
     def test_load_rejects_file_that_changes_while_reading(self):
-        first = FileSnapshot(1, 2, 3, 4, 5, 0o100644, 1000, 1000)
-        second = FileSnapshot(1, 2, 4, 5, 6, 0o100644, 1000, 1000)
+        first = ReadStabilitySignature(1, 2, 3, 4)
+        second = ReadStabilitySignature(1, 2, 4, 5)
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "sample.json"
             path.write_text(json.dumps({"value": 1}), encoding="utf-8")
 
-            with mock.patch(
-                "jsonforge.core.document.FileSnapshot.from_stat",
-                side_effect=[first, second],
+            with (
+                mock.patch(
+                    "jsonforge.core.document.ReadStabilitySignature.from_stat",
+                    side_effect=[first, second] * 3,
+                ),
+                mock.patch("jsonforge.core.document.time.sleep"),
             ):
                 with self.assertRaises(ConcurrentModificationError):
                     JsonDocument.load(path)
+
+    def test_load_retries_transient_snapshot_instability(self):
+        first = ReadStabilitySignature(1, 2, 3, 4)
+        second = ReadStabilitySignature(1, 2, 4, 5)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sample.json"
+            path.write_text(json.dumps({"value": 1}), encoding="utf-8")
+
+            with (
+                mock.patch(
+                    "jsonforge.core.document.ReadStabilitySignature.from_stat",
+                    side_effect=[first, second, first, first],
+                ),
+                mock.patch("jsonforge.core.document.time.sleep") as sleep_mock,
+            ):
+                doc = JsonDocument.load(path)
+
+            self.assertEqual(doc.data, {"value": 1})
+            sleep_mock.assert_called_once_with(0.01)
 
 
 if __name__ == "__main__":

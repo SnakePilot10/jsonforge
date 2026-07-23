@@ -61,6 +61,8 @@ def json_type_name(value) -> str:
 
 
 def preview_value(value, limit: int = 120) -> str:
+    if limit < 3:
+        raise ValueError("Preview must be greater than or equal to 3")
     if isinstance(value, dict):
         label = "entry" if len(value) == 1 else "entries"
         return f"{{...}} ({len(value)} {label})"
@@ -71,6 +73,25 @@ def preview_value(value, limit: int = 120) -> str:
     if len(rendered) > limit:
         return rendered[: limit - 3] + "..."
     return rendered
+
+
+def same_json_value(left, right) -> bool:
+    stack = [(left, right)]
+    while stack:
+        current_left, current_right = stack.pop()
+        if type(current_left) is not type(current_right):
+            return False
+        if isinstance(current_left, dict):
+            if current_left.keys() != current_right.keys():
+                return False
+            stack.extend((current_left[key], current_right[key]) for key in current_left)
+        elif isinstance(current_left, list):
+            if len(current_left) != len(current_right):
+                return False
+            stack.extend(zip(current_left, current_right, strict=True))
+        elif current_left != current_right:
+            return False
+    return True
 
 
 def display_path(path: JsonPath) -> str:
@@ -109,6 +130,42 @@ def embedded_storage_path(data, path: JsonPath) -> str | None:
     return None
 
 
+def prompt_scalar_value(current):
+    current_type = json_type_name(current)
+    while True:
+        raw_value = ask(f"New value [{current_type}] (:type to change type): ")
+        if raw_value.strip().lower() == ":type":
+            value_type = choose(
+                "New type (auto/string/int/float/bool/null/json): ",
+                VALUE_TYPES[1:],
+            )
+            return parse_typed_value(ask("New value: "), value_type)
+        try:
+            return parse_preserving_type(raw_value, current)
+        except ValueError as exc:
+            render_status(str(exc), kind="error")
+            action = choose(
+                "Correct value, change type, or cancel (1/2/3): ",
+                ["1", "2", "3"],
+            )
+            if action == "2":
+                value_type = choose(
+                    "New type (auto/string/int/float/bool/null/json): ",
+                    VALUE_TYPES[1:],
+                )
+                return parse_typed_value(ask("New value: "), value_type)
+            if action == "3":
+                return current
+
+
+def _container_children(current, query: str):
+    children = current.keys() if isinstance(current, dict) else range(len(current))
+    if not query:
+        return children, len(current)
+    filtered = [child for child in children if query.lower() in str(child).lower()]
+    return filtered, len(filtered)
+
+
 def edit_path_guided(doc: JsonDocument, path: str | JsonPath, *, decode_embedded: bool) -> bool:
     selected = JsonPath.from_dot(path) if isinstance(path, str) else path
 
@@ -128,64 +185,91 @@ def edit_path_guided(doc: JsonDocument, path: str | JsonPath, *, decode_embedded
         )
 
         if isinstance(current, (dict, list)):
-            child_count = len(current)
-            children = (
-                list(islice(current, 50))
-                if isinstance(current, dict)
-                else list(range(min(child_count, 50)))
-            )
-            rows = []
-            for index, child in enumerate(children[:50], start=1):
-                child_value = current[child]
-                child_value = decode_if_embedded_json(
-                    child_value,
-                    enabled=decode_embedded,
-                ).value
-                rows.append(
-                    (index, str(child), json_type_name(child_value), preview_value(child_value))
-                )
-            render_container_children(rows, omitted=max(0, child_count - len(children)))
-            action = ask("Select child number, R replace entire container, Enter return: ").strip()
-            if not action:
-                return False
-            if action.lower() == "r":
-                value_type = choose(
-                    "Replacement type (auto/string/int/float/bool/null/json): ",
-                    VALUE_TYPES[1:],
-                )
-                value = parse_typed_value(ask("New value: "), value_type)
-                render_change_preview(
-                    rendered_path,
-                    preview_value(current),
-                    preview_value(value),
-                    current_type,
-                    json_type_name(value),
-                )
-                expected = f"REPLACE {rendered_path}"
-                if ask(f"Type {expected} to continue: ").strip() != expected:
-                    render_status("Update cancelled.", kind="warning")
+            page = 0
+            query = ""
+            while True:
+                all_children, filtered_count = _container_children(current, query)
+                page_count = max(1, (filtered_count + 49) // 50)
+                page = min(page, page_count - 1)
+                start = page * 50
+                children = list(islice(all_children, start, start + 50))
+                rows = []
+                for index, child in enumerate(children, start=1):
+                    child_value = current[child]
+                    child_value = decode_if_embedded_json(
+                        child_value,
+                        enabled=decode_embedded,
+                    ).value
+                    rows.append(
+                        (index, str(child), json_type_name(child_value), preview_value(child_value))
+                    )
+                caption = f"Page {page + 1}/{page_count}; {filtered_count} entries"
+                if query:
+                    caption += f'; filter: "{query}"'
+                render_container_children(rows, caption=caption)
+                action = ask("Select child, N/P page, / filter, R replace, Enter return: ").strip()
+                if not action:
                     return False
-                doc.data = set_path(
-                    doc.data,
-                    selected,
-                    value,
-                    decode_embedded=decode_embedded,
-                )
-                render_status("Updated.", kind="success")
-                return True
-            try:
-                child_index = int(action) - 1
-                child = children[child_index]
-                if child_index < 0:
-                    raise IndexError
-            except (ValueError, IndexError):
-                render_status("Invalid selection.", kind="error")
-                continue
-            selected = JsonPath(selected.parts + (str(child),))
+                if action.lower() == "n":
+                    if page + 1 < page_count:
+                        page += 1
+                    else:
+                        render_status("Already on the last page.", kind="warning")
+                    continue
+                if action.lower() == "p":
+                    if page:
+                        page -= 1
+                    else:
+                        render_status("Already on the first page.", kind="warning")
+                    continue
+                if action == "/":
+                    query = ask("Filter immediate children (blank clears): ").strip()
+                    page = 0
+                    continue
+                if action.lower() == "r":
+                    value_type = choose(
+                        "Replacement type (auto/string/int/float/bool/null/json): ",
+                        VALUE_TYPES[1:],
+                    )
+                    value = parse_typed_value(ask("New value: "), value_type)
+                    render_change_preview(
+                        rendered_path,
+                        preview_value(current),
+                        preview_value(value),
+                        current_type,
+                        json_type_name(value),
+                    )
+                    expected = f"REPLACE {rendered_path}"
+                    if ask(f"Type {expected} to continue: ").strip() != expected:
+                        render_status("Update cancelled.", kind="warning")
+                        return False
+                    if same_json_value(value, current):
+                        render_status("No changes to apply.", kind="info")
+                        return False
+                    doc.data = set_path(
+                        doc.data,
+                        selected,
+                        value,
+                        decode_embedded=decode_embedded,
+                    )
+                    render_status("Updated.", kind="success")
+                    return True
+                try:
+                    child_index = int(action) - 1
+                    child = children[child_index]
+                    if child_index < 0:
+                        raise IndexError
+                except (ValueError, IndexError):
+                    render_status("Invalid selection.", kind="error")
+                    continue
+                selected = JsonPath(selected.parts + (str(child),))
+                break
             continue
 
-        raw_value = ask(f"New value [{current_type}]: ")
-        value = parse_preserving_type(raw_value, current)
+        value = prompt_scalar_value(current)
+        if same_json_value(value, current):
+            render_status("No changes to apply.", kind="info")
+            return False
         render_change_preview(
             rendered_path,
             preview_value(current),
@@ -206,8 +290,43 @@ def edit_path_guided(doc: JsonDocument, path: str | JsonPath, *, decode_embedded
         return True
 
 
-def run_interactive(json_file: str) -> None:
-    doc = JsonDocument.load(json_file)
+def delete_path_guided(
+    doc: JsonDocument,
+    path: str | JsonPath,
+    *,
+    decode_embedded: bool,
+) -> bool:
+    selected = JsonPath.from_dot(path) if isinstance(path, str) else path
+    current = get_path(doc.data, selected, decode_embedded=decode_embedded).value
+    rendered_path = display_path(selected)
+    current_type = json_type_name(current)
+    storage_path = embedded_storage_path(doc.data, selected) if decode_embedded else None
+    storage = f'embedded JSON within "{storage_path}"' if storage_path is not None else None
+    render_path_summary(
+        rendered_path,
+        current_type,
+        storage=storage,
+        child_count=len(current) if isinstance(current, (dict, list)) else None,
+        current_value=None if isinstance(current, (dict, list)) else format_value(current),
+    )
+    if isinstance(current, (dict, list)):
+        expected = f"DELETE {rendered_path}"
+        if (
+            ask(f"This removes the entire container. Type {expected} to continue: ").strip()
+            != expected
+        ):
+            render_status("Delete cancelled.", kind="warning")
+            return False
+    elif not ask_yes_no("Confirm deletion? [y/N]: "):
+        render_status("Delete cancelled.", kind="warning")
+        return False
+    doc.data = delete_path(doc.data, selected, decode_embedded=decode_embedded)
+    render_status("Deleted.", kind="success")
+    return True
+
+
+def run_interactive(json_file: str, *, max_bytes: int | None = None) -> None:
+    doc = JsonDocument.load(json_file, max_bytes=max_bytes)
     dirty = False
     print(f"JsonForge: {doc.path}")
 
@@ -235,7 +354,28 @@ def run_interactive(json_file: str) -> None:
             path = ask_with_path_completions("Path: ", doc.data, decode_embedded=decode_embedded)
             try:
                 match = get_path(doc.data, path, decode_embedded=decode_embedded)
-                print(format_value(match.value))
+                selected = JsonPath.from_dot(path)
+                value = match.value
+                if isinstance(value, (dict, list)):
+                    storage_path = (
+                        embedded_storage_path(doc.data, selected) if decode_embedded else None
+                    )
+                    storage = (
+                        f'embedded JSON within "{storage_path}"'
+                        if storage_path is not None
+                        else None
+                    )
+                    render_path_summary(
+                        display_path(selected),
+                        json_type_name(value),
+                        storage=storage,
+                        child_count=len(value),
+                        current_value=None,
+                    )
+                    if ask("V view full JSON, Enter return: ").strip().lower() == "v":
+                        print(format_value(value))
+                else:
+                    print(format_value(value))
                 if match.decoded_embedded_segments:
                     print(f"Decoded embedded JSON segments: {match.decoded_embedded_segments}")
             except (KeyError, IndexError, TypeError, ValueError) as exc:
@@ -330,14 +470,8 @@ def run_interactive(json_file: str) -> None:
             path = ask_with_path_completions(
                 "Path to delete: ", doc.data, decode_embedded=decode_embedded
             )
-            confirm = ask(f"Delete '{path}'? (yes/no): ")
-            if not confirm.lower().startswith("y"):
-                print("Delete cancelled.")
-                continue
             try:
-                doc.data = delete_path(doc.data, path, decode_embedded=decode_embedded)
-                dirty = True
-                print("Deleted.")
+                dirty = delete_path_guided(doc, path, decode_embedded=decode_embedded) or dirty
             except (KeyError, IndexError, TypeError, ValueError) as exc:
                 print("Error:", exc)
         elif choice == "7":
@@ -369,6 +503,9 @@ def run_interactive(json_file: str) -> None:
                     formatted_path = path.to_pointer()
                 print(f"{formatted_path} ({type(value).__name__})")
         elif choice == "8":
+            if not dirty:
+                render_status("No changes to save.", kind="info")
+                continue
             try:
                 result = doc.save(backup=True)
             except (OSError, ValueError, ConcurrentModificationError) as exc:
@@ -382,10 +519,12 @@ def run_interactive(json_file: str) -> None:
                     "but directory durability could not be confirmed."
                 )
             if not result.snapshot_confirmed:
-                print(
-                    "Warning: the file was replaced successfully, "
-                    "but its post-save snapshot could not be confirmed."
+                render_status(
+                    "The file was written, but its current state could not be re-verified. "
+                    "Reload the document before making additional changes.",
+                    kind="error",
                 )
+                return
         elif choice == "9":
             if dirty:
                 confirm = ask("Unsaved changes. Exit anyway? (yes/no): ")

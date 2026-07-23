@@ -2,7 +2,7 @@
 
 ## Current Status
 
-JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, and a simple `prompt_toolkit` interactive menu. Current CLI support includes `validate`, `get`, `set`, `add`, `delete`, `search`, `tree`, and `interactive`.
+JsonForge has a hardened MVP with a universal JSON core, CLI commands, and a guided `prompt_toolkit`/Rich interactive workflow. Current CLI support includes `validate`, `get`, `set`, `add`, `delete`, `search`, `tree`, and `interactive`.
 
 ## Decisions
 
@@ -16,8 +16,9 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Backup names include collision handling so multiple writes in the same second do not overwrite earlier backups.
 - Backups are reserved with exclusive creation, flushed, fsynced, and never created through a pre-existing path entry.
 - Saves are atomic: data is written to a temporary file, flushed, fsynced, validated, and then swapped into place with `os.replace()`.
-- Atomic saves preserve file permissions, do not preserve old mtimes, and reject symlink paths instead of replacing the link.
+- Atomic saves preserve file permissions, owner, and group; do not preserve old mtimes; and reject symlink paths instead of replacing the link. Ownership syscalls are skipped when the temporary file already matches.
 - Loaded documents keep a file snapshot; saves reject external modification unless `force_write` / `--force-write` is used explicitly.
+- File deletion and unexpected destination creation are snapshot conflicts. Stable reads use a minimal content signature and retry transient Android/FUSE metadata instability.
 - JSON handling is strict: `NaN`, `Infinity`, and `-Infinity` are rejected during load, cast, and save.
 - Duplicate object keys are rejected during load and validation unless compatibility is requested explicitly.
 - Path traversal and search use iterative stacks so callers can consume bounded result sets incrementally.
@@ -25,6 +26,10 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Array indexes now require strict ASCII JSON Pointer-style spelling: `0` or digits without leading zeroes.
 - Interactive dot-path completion resolves only the current parent and suggests its immediate object keys or array indexes instead of traversing the full document.
 - Deep `set`, `add`, and `delete` traversal uses an explicit parent stack; embedded JSON layers are re-encoded while unwinding that stack.
+- Interactive editing uses Rich summaries and previews, paginates/filter containers, preserves scalar type by default, and requires strong confirmation for whole-container replacement or deletion.
+- Runtime support targets POSIX systems, with Linux and Android/Termux as the primary environments; Windows is intentionally out of scope.
+- CLI commands enforce a configurable 256 MiB input/output limit by default; the core API remains unlimited unless requested.
+- Release checks build and inspect wheel/sdist artifacts, smoke-test the wheel, and audit installed dependencies.
 
 ## Completed
 
@@ -51,6 +56,10 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - Convertidas las mutaciones profundas `set`, `add` y `delete` de recursivas a iterativas mediante una pila explícita de padres.
 - Preservada la reconstrucción de strings JSON embebidos, incluyendo múltiples capas anidadas, durante las mutaciones iterativas.
 - Agregadas regresiones a profundidad 1100 para comprobar que las mutaciones ya no dependen del límite de recursión de Python.
+- Añadido el editor guiado con resultados Rich numerados, navegación de JSON embebido y confirmación fuerte para reemplazar contenedores.
+- Corregidos conflictos por archivos eliminados o destinos no rastreados, reintentos de lectura para Android/FUSE y llamadas innecesarias a `fchown()`.
+- Añadidas paginación y búsqueda local de hijos, cambio explícito de tipo, borrado protegido, detección de operaciones sin efecto y bloqueo tras una instantánea posterior no confirmada.
+- Tratado todo contenido procedente del JSON como texto literal en tablas Rich.
 
 ### 2026-07-12
 
@@ -104,13 +113,15 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 
 ## In Progress
 
-- Core semantics and bounded traversal/search are being stabilized for `0.2.0`. Next work should focus on polishing recovery workflows and operation previews.
+- Core semantics, Android-compatible safe writes, and guided editing are being stabilized for `0.2.0`.
 
 ## Next Steps
 
-- Add CLI and documentation polish around recovery workflows for unconfirmed directory durability.
-- Add operation preview/dry-run support before destructive saves.
+- Add CLI dry-run support and richer recovery workflows for unconfirmed durability.
+- Add operation-scoped caching for repeated embedded-JSON decoding.
+- Add interactive change history, undo, and a summary before saving.
 - Add richer stress and property tests for paths, mutations, round-trips, and unusual keys.
+- Add manual or emulated validation for Termux shared storage; GitHub-hosted CI currently covers Ubuntu only.
 
 ## Known Issues
 
@@ -135,6 +146,8 @@ JsonForge has an initial hardened MVP with a universal JSON core, CLI commands, 
 - `python -m pytest` pasó: 132 tests tras cubrir hijos contextuales, filtros parciales, arrays, append, JSON embebido y claves escapadas.
 - `ruff check .`, `ruff format --check .` y `python -m compileall jsonforge tests` pasaron tras convertir las mutaciones a iterativas.
 - `python -m pytest` pasó: 137 tests, incluyendo `set`, `add` y `delete` a profundidad 1100 y reconstrucción de JSON embebido anidado.
+- `python -m pytest` pasó: 155 tests tras añadir guardado seguro, edición guiada y renderizado Rich.
+- `python -m pytest` pasó: 166 tests tras endurecer conflictos de archivos, compatibilidad Android/FUSE y seguridad/navegación de la TUI.
 
 ### 2026-07-12
 

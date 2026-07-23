@@ -201,6 +201,27 @@ class PathTests(unittest.TestCase):
         add_path(data, "settings.enabled", True, force=True)
         self.assertIs(data["settings"]["enabled"], True)
 
+    def test_add_path_force_preserves_embedded_string_storage(self):
+        data = {"settings": '{"enabled":false}'}
+
+        data = add_path(
+            data,
+            "settings",
+            {"enabled": True},
+            force=True,
+            decode_embedded=True,
+        )
+
+        self.assertIsInstance(data["settings"], str)
+        self.assertEqual(json.loads(data["settings"]), {"enabled": True})
+
+    def test_add_path_force_can_replace_embedded_string_without_decoding(self):
+        data = {"settings": '{"enabled":false}'}
+
+        data = add_path(data, "settings", {"enabled": True}, force=True)
+
+        self.assertEqual(data["settings"], {"enabled": True})
+
     def test_add_path_to_embedded_object_requires_decode_embedded(self):
         data = {"settings": "{}"}
         data = add_path(data, "settings.enabled", True, decode_embedded=True)

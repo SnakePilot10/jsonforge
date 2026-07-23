@@ -1,5 +1,6 @@
 import argparse
 import json
+import re
 import sys
 
 from .core.casting import parse_typed_value
@@ -16,6 +17,9 @@ from .core.paths import (
 from .core.search import format_search_line, search
 from .tui.app import run_interactive
 
+DEFAULT_MAX_FILE_SIZE = 256 * 1024 * 1024
+FILE_SIZE_PATTERN = re.compile(r"([0-9]+)([KMG](?:I?B)?)?", re.IGNORECASE)
+
 
 def non_negative_int(value: str) -> int:
     parsed = int(value)
@@ -31,14 +35,41 @@ def preview_size(value: str) -> int:
     return parsed
 
 
+def file_size(value: str) -> int | None:
+    normalized = value.strip().upper()
+    if normalized in {"NONE", "UNLIMITED"}:
+        return None
+    match = FILE_SIZE_PATTERN.fullmatch(normalized)
+    if match is None:
+        raise ValueError("file size must be bytes, K/KiB, M/MiB, G/GiB, or unlimited")
+    amount = int(match.group(1))
+    unit = (match.group(2) or "")[0:1]
+    multiplier = {"": 1, "K": 1024, "M": 1024**2, "G": 1024**3}[unit]
+    return amount * multiplier
+
+
+def add_file_size_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--max-file-size",
+        type=file_size,
+        default=DEFAULT_MAX_FILE_SIZE,
+        metavar="SIZE",
+        help="Maximum input/output size (default: 256MiB; use 'unlimited' to disable)",
+    )
+
+
 def cmd_validate(args) -> int:
-    JsonDocument.load(args.file, allow_duplicate_keys=args.allow_duplicate_keys)
+    JsonDocument.load(
+        args.file,
+        allow_duplicate_keys=args.allow_duplicate_keys,
+        max_bytes=args.max_file_size,
+    )
     print("valid")
     return 0
 
 
 def cmd_get(args) -> int:
-    doc = JsonDocument.load(args.file)
+    doc = JsonDocument.load(args.file, max_bytes=args.max_file_size)
     match = get_path(
         doc.data,
         args.path,
@@ -50,7 +81,7 @@ def cmd_get(args) -> int:
 
 
 def cmd_set(args) -> int:
-    doc = JsonDocument.load(args.file)
+    doc = JsonDocument.load(args.file, max_bytes=args.max_file_size)
     doc.data = set_path(
         doc.data,
         args.path,
@@ -65,7 +96,7 @@ def cmd_set(args) -> int:
 
 
 def cmd_add(args) -> int:
-    doc = JsonDocument.load(args.file)
+    doc = JsonDocument.load(args.file, max_bytes=args.max_file_size)
     doc.data = add_path(
         doc.data,
         args.path,
@@ -81,7 +112,7 @@ def cmd_add(args) -> int:
 
 
 def cmd_delete(args) -> int:
-    doc = JsonDocument.load(args.file)
+    doc = JsonDocument.load(args.file, max_bytes=args.max_file_size)
     doc.data = delete_path(
         doc.data,
         args.path,
@@ -118,7 +149,7 @@ def save_exit_code(result: SaveResult) -> int:
 
 
 def cmd_search(args) -> int:
-    doc = JsonDocument.load(args.file)
+    doc = JsonDocument.load(args.file, max_bytes=args.max_file_size)
     found = False
     for path, value in search(
         doc.data,
@@ -143,7 +174,7 @@ def cmd_search(args) -> int:
 
 
 def cmd_tree(args) -> int:
-    doc = JsonDocument.load(args.file)
+    doc = JsonDocument.load(args.file, max_bytes=args.max_file_size)
     paths = iter_paths(doc.data, max_depth=args.depth, decode_embedded=args.decode_embedded)
     for path, value in paths:
         formatted_path = render_path(path, args.path_format)
@@ -152,7 +183,7 @@ def cmd_tree(args) -> int:
 
 
 def cmd_interactive(args) -> int:
-    run_interactive(args.file)
+    run_interactive(args.file, max_bytes=args.max_file_size)
     return 0
 
 
@@ -163,6 +194,7 @@ def build_parser() -> argparse.ArgumentParser:
     validate = subparsers.add_parser("validate", help="Validate a JSON file")
     validate.add_argument("file")
     validate.add_argument("--allow-duplicate-keys", action="store_true")
+    add_file_size_argument(validate)
     validate.set_defaults(func=cmd_validate)
 
     get = subparsers.add_parser("get", help="Print the value at a JSON path")
@@ -174,6 +206,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="dot",
         help="Syntax used by PATH",
     )
+    add_file_size_argument(get)
     get.add_argument(
         "--decode-embedded",
         action="store_true",
@@ -190,6 +223,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["auto", "string", "int", "float", "bool", "null", "json"],
         default="auto",
     )
+    add_file_size_argument(set_cmd)
     set_cmd.add_argument(
         "--path-format",
         choices=["dot", "pointer"],
@@ -218,6 +252,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["auto", "string", "int", "float", "bool", "null", "json"],
         default="auto",
     )
+    add_file_size_argument(add)
     add.add_argument("--force", action="store_true", help="Replace an existing object key")
     add.add_argument(
         "--path-format",
@@ -247,6 +282,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="dot",
         help="Syntax used by PATH",
     )
+    add_file_size_argument(delete)
     delete.add_argument(
         "--decode-embedded",
         action="store_true",
@@ -284,6 +320,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Search inside string values containing JSON arrays or objects",
     )
     search_cmd.add_argument("--preview", type=preview_size, default=120)
+    add_file_size_argument(search_cmd)
     search_cmd.set_defaults(func=cmd_search)
 
     tree = subparsers.add_parser("tree", help="List paths in a JSON document")
@@ -295,6 +332,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="dot",
         help="Syntax used for PATH in tree output",
     )
+    add_file_size_argument(tree)
     tree.add_argument(
         "--decode-embedded",
         action="store_true",
@@ -304,6 +342,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     interactive = subparsers.add_parser("interactive", help="Open interactive prompt")
     interactive.add_argument("file")
+    add_file_size_argument(interactive)
     interactive.set_defaults(func=cmd_interactive)
     return parser
 
@@ -315,7 +354,7 @@ def main(argv: list[str] | None = None) -> int:
     commands = {"validate", "get", "set", "add", "delete", "search", "tree", "interactive"}
     if len(argv) == 1 and argv[0] not in commands and not argv[0].startswith("-"):
         try:
-            run_interactive(argv[0])
+            run_interactive(argv[0], max_bytes=DEFAULT_MAX_FILE_SIZE)
             return 0
         except (OSError, json.JSONDecodeError, ValueError, ConcurrentModificationError) as exc:
             print(f"jsonforge: {exc}", file=sys.stderr)

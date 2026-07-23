@@ -44,6 +44,19 @@ class RenderTests(unittest.TestCase):
         self.assertIn("250", rendered)
         self.assertIn("integer -> integer", rendered)
 
+    def test_tables_treat_json_markup_as_literal_text(self):
+        output = io.StringIO()
+        console = Console(file=output, force_terminal=False, width=100)
+        markup = "[bold red]password[/bold red]"
+
+        with mock.patch.object(render, "console", console):
+            render.render_search_results(markup, [(1, markup, "string", markup)])
+            render.render_container_children([(1, markup, "string", markup)], caption=markup)
+
+        rendered = output.getvalue()
+        self.assertEqual(rendered.count("[bold red]"), 6)
+        self.assertEqual(rendered.count("password"), 6)
+
 
 if __name__ == "__main__":
     unittest.main()
