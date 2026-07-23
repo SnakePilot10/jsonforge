@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [{ name = "SnakePilot10" }]
-dependencies = ["prompt_toolkit>=3.0", "rich>=13.7"]
+dependencies = ["prompt_toolkit>=3.0.52", "rich>=13.7"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
